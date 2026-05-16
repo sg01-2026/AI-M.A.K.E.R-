@@ -53,7 +53,7 @@ export default function HeritagePage() {
   return (
     <div className="min-h-screen bg-hanji-50 pb-20">
       {/* Hero Header */}
-      <section className="relative h-[50vh] flex items-end">
+      <section className="relative h-[45vh] flex items-end">
         <div className="absolute inset-0 bg-ink-900 overflow-hidden">
            <img 
              src={`https://picsum.photos/seed/${data.id}/1920/1080`}
@@ -64,9 +64,28 @@ export default function HeritagePage() {
            <div className="absolute inset-0 bg-gradient-to-t from-hanji-50 via-transparent to-transparent" />
         </div>
         
+        {/* Category Navigation (Siblings) */}
+        <div className="absolute top-0 left-0 right-0 z-20 bg-ink-900/40 backdrop-blur-sm border-b border-white/5">
+          <div className="max-w-7xl mx-auto px-4 overflow-x-auto no-scrollbar">
+             <div className="flex items-center space-x-8 h-10">
+                {Object.keys(heritageData).map((hName) => (
+                  <Link 
+                    key={hName} 
+                    to={`/project/${hName}`}
+                    className={`text-[10px] font-serif uppercase tracking-widest whitespace-nowrap transition-colors ${
+                      hName === data.name ? 'text-gold-500 font-bold' : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    {hName}
+                  </Link>
+                ))}
+             </div>
+          </div>
+        </div>
+        
         <div className="relative z-10 max-w-7xl mx-auto px-4 w-full pb-12 space-y-4">
-           <Link to="/" className="text-gold-600 flex items-center space-x-1 text-sm font-serif hover:translate-x-[-4px] transition-transform">
-              <span>← 메인으로 돌아가기</span>
+           <Link to="/" className="text-gold-600 flex items-center space-x-1 text-xs font-serif hover:translate-x-[-4px] transition-transform opacity-60">
+              <span>← 시흥문화유산 HOME</span>
            </Link>
            <h1 className="text-5xl md:text-7xl font-serif text-ink-900 tracking-tight">{data.name}</h1>
            <div className="flex items-center space-x-4 text-ink-800/60 font-serif">

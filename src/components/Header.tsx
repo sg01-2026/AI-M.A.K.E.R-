@@ -70,6 +70,25 @@ export default function Header() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const getHref = (itemTitle: string, subItem: string) => {
+    if (itemTitle === '학생동아리') return `/clubs/${subItem}`;
+    if (itemTitle === '지도안 · 학습지') {
+      const sectionMap: Record<string, string> = {
+        '수업 지도안': 'lesson',
+        '활동지': 'activity',
+        '프로젝트 활동 자료': 'project-res',
+        '프롬프트 예시': 'prompt',
+        'AI 활용 가이드': 'guide'
+      };
+      return `/resources#${sectionMap[subItem] || ''}`;
+    }
+    
+    // Default cases for other menus can be projects or specific pages
+    if (subItem === '활동 갤러리' || subItem === '갤러리') return '/project/갤러리'; // Example handler
+    
+    return `/project/${subItem}`;
+  };
+
   return (
     <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -145,13 +164,7 @@ export default function Header() {
                       {item.sub.map((subItem) => (
                         <Link
                           key={subItem}
-                          to={
-                            item.title === '학생동아리' 
-                            ? `/clubs/${subItem}` 
-                            : subItem === 'AI 활용 가이드' || subItem === '프롬프트 예시' 
-                            ? '/resources' 
-                            : `/project/${subItem}`
-                          }
+                          to={getHref(item.title, subItem)}
                           className="block px-3 py-2 text-xs text-ink-800 hover:bg-gold-500/10 hover:text-gold-600 rounded-sm transition-all duration-200"
                         >
                           {subItem}
@@ -196,7 +209,7 @@ export default function Header() {
                     {item.sub.map((subItem) => (
                       <Link
                         key={subItem}
-                        to={`/project/${subItem}`}
+                        to={getHref(item.title, subItem)}
                         onClick={() => setIsOpen(false)}
                         className="text-ink-800 hover:text-gold-600 transition-colors duration-200"
                       >

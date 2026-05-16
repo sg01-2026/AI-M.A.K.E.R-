@@ -33,84 +33,127 @@ const promptExamples = [
 export default function ResourcesPage() {
   const [guideResources, setGuideResources] = useState<Resource[]>([]);
   const [promptResources, setPromptResources] = useState<Resource[]>([]);
+  const [lessonResources, setLessonResources] = useState<Resource[]>([]);
+  const [activityResources, setActivityResources] = useState<Resource[]>([]);
+  const [projectResources, setProjectResources] = useState<Resource[]>([]);
 
   useEffect(() => {
-    // Fetch AI 활용 가이드
-    const qGuide = query(
-      collection(db, 'resources'),
-      where('category', '==', 'AI 활용 가이드'),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubGuide = onSnapshot(qGuide, (snap) => {
-      setGuideResources(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Resource[]);
-    });
+    const setupCategory = (category: string, setter: (res: Resource[]) => void) => {
+      const q = query(
+        collection(db, 'resources'),
+        where('category', '==', category),
+        orderBy('createdAt', 'desc')
+      );
+      return onSnapshot(q, (snap) => {
+        setter(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Resource[]);
+      });
+    };
 
-    // Fetch 프롬프트 예시
-    const qPrompt = query(
-      collection(db, 'resources'),
-      where('category', '==', '프롬프트 예시'),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubPrompt = onSnapshot(qPrompt, (snap) => {
-      setPromptResources(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Resource[]);
-    });
+    const unsubGuide = setupCategory('AI 활용 가이드', setGuideResources);
+    const unsubPrompt = setupCategory('프롬프트 예시', setPromptResources);
+    const unsubLesson = setupCategory('수업 지도안', setLessonResources);
+    const unsubActivity = setupCategory('활동지', setActivityResources);
+    const unsubProjectRes = setupCategory('프로젝트 활동 자료', setProjectResources);
 
     return () => {
       unsubGuide();
       unsubPrompt();
+      unsubLesson();
+      unsubActivity();
+      unsubProjectRes();
     };
   }, []);
+
+  const renderResourceList = (title: string, resources: Resource[], id?: string) => {
+    if (resources.length === 0) return null;
+    return (
+      <div id={id} className="space-y-4 scroll-mt-24">
+        <h3 className="text-lg font-serif text-ink-900 border-b border-gold-500/10 pb-2">{title}</h3>
+        <div className="grid grid-cols-1 gap-3">
+          {resources.map(res => (
+            <a 
+              key={res.id}
+              href={res.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between p-4 bg-hanji-100/50 border border-gold-500/10 hover:border-gold-500/40 transition-all rounded-sm group"
+            >
+              <div className="flex items-center space-x-3">
+                {res.type === 'image' ? (
+                  <ImageIcon className="w-4 h-4 text-gold-600" />
+                ) : (
+                  <FileText className="w-4 h-4 text-gold-600" />
+                )}
+                <span className="text-sm font-serif text-ink-900 group-hover:text-gold-600 transition-colors">{res.title}</span>
+              </div>
+              <ExternalLink className="w-3.5 h-3.5 text-gold-600 opacity-30 group-hover:opacity-100 transition-opacity" />
+            </a>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-20 space-y-20">
        <div className="text-center space-y-6">
-          <h1 className="text-4xl md:text-6xl font-serif text-ink-900">AI 활용 가이드</h1>
+          <h1 className="text-4xl md:text-6xl font-serif text-ink-900 tracking-tight">지도안 · 학습지 아카이브</h1>
           <p className="text-ink-800/60 font-serif max-w-2xl mx-auto">
-             시흥문화유산을 더 깊게 탐구하고 창의적으로 표현하기 위한 AI 활용 방법과 프롬프트 예시를 공유합니다.
+             시흥문화유산 프로젝트 수업을 위한 다양한 교육 자료와 AI 활용 가이드를 제공합니다.
           </p>
        </div>
 
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          <div className="space-y-8">
-             <h2 className="text-2xl font-serif text-gold-600 flex items-center space-x-2">
-                <Lightbulb className="w-6 h-6" />
-                <span>AI 활용 핵심 팁</span>
-             </h2>
-             <div className="space-y-4">
-                {[
-                  { title: '구체적인 맥락 제공', desc: '문화유산의 이름뿐만 아니라 그 속에 담긴 역사적 사실이나 설화를 프롬프트에 포함하세요.' },
-                  { title: '스타일 지정', desc: '한국 전통의 느낌을 살리기 위해 "한지 질감", "수묵화 스타일", "서정적" 같은 단어를 사용해보세요.' },
-                  { title: '학생의 시각 유지', desc: '아이들의 눈높이에서 궁금해할 법한 질문들을 AI에게 던져보세요.' },
-                ].map((tip, i) => (
-                  <div key={i} className="p-6 bg-white border border-gold-500/10 hover:border-gold-500/40 transition-colors">
-                     <h4 className="font-serif font-bold mb-2">{tip.title}</h4>
-                     <p className="text-sm text-ink-800/60 font-serif">{tip.desc}</p>
-                  </div>
-                ))}
+       {/* Quick Section Nav */}
+       <div className="sticky top-20 z-30 bg-hanji-100/95 backdrop-blur-md border-b border-gold-500/10 py-4 -mt-10 overflow-x-auto no-scrollbar">
+          <div className="flex items-center justify-center space-x-8 px-4">
+             {[
+               { id: 'lesson', label: '수업 지도안' },
+               { id: 'activity', label: '활동지' },
+               { id: 'project-res', label: '프로젝트 활동 자료' },
+               { id: 'guide', label: 'AI 활용 가이드' },
+               { id: 'prompt', label: '프롬프트 예시' },
+             ].map((section) => (
+               <a 
+                 key={section.id} 
+                 href={`#${section.id}`}
+                 className="text-[11px] font-serif uppercase tracking-widest text-ink-800/60 hover:text-gold-600 transition-colors whitespace-nowrap"
+               >
+                 {section.label}
+               </a>
+             ))}
+          </div>
+       </div>
+
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+          <div className="lg:col-span-2 space-y-12">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {renderResourceList('수업 지도안', lessonResources, 'lesson')}
+                {renderResourceList('활동지', activityResources, 'activity')}
+                {renderResourceList('프로젝트 활동 자료', projectResources, 'project-res')}
+                {renderResourceList('AI 활용 가이드', guideResources, 'guide')}
              </div>
 
-             {guideResources.length > 0 && (
-               <div className="space-y-4 mt-8 pt-8 border-t border-gold-500/10">
-                 <h3 className="text-lg font-serif text-ink-900">추가 가이드 자료</h3>
-                 {guideResources.map(res => (
-                   <a 
-                     key={res.id}
-                     href={res.fileUrl}
-                     target="_blank"
-                     className="flex items-center justify-between p-4 bg-hanji-100 border border-gold-500/10 hover:border-gold-500/40 transition-all rounded-sm"
-                   >
-                     <div className="flex items-center space-x-3">
-                       {res.type === 'image' ? <ImageIcon className="w-4 h-4 text-gold-600" /> : <FileText className="w-4 h-4 text-gold-600" />}
-                       <span className="text-sm font-serif text-ink-900">{res.title}</span>
+             <div className="space-y-8 pt-12 border-t border-gold-500/10">
+                <h2 className="text-2xl font-serif text-gold-600 flex items-center space-x-2">
+                   <Lightbulb className="w-6 h-6" />
+                   <span>AI 활용 핵심 팁</span>
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   {[
+                     { title: '구체적인 맥락 제공', desc: '문화유산의 이름뿐만 아니라 그 속에 담긴 역사적 사실이나 설화를 프롬프트에 포함하세요.' },
+                     { title: '스타일 지정', desc: '한국 전통의 느낌을 살리기 위해 "한지 질감", "수묵화 스타일", "서정적" 같은 단어를 사용해보세요.' },
+                     { title: '학생의 시각 유지', desc: '아이들의 눈높이에서 궁금해할 법한 질문들을 AI에게 던져보세요.' },
+                   ].map((tip, i) => (
+                     <div key={i} className="p-6 bg-white border border-gold-500/5 hover:border-gold-500/20 shadow-sm transition-all">
+                        <h4 className="font-serif font-bold mb-2 text-ink-900">{tip.title}</h4>
+                        <p className="text-xs text-ink-800/60 font-serif leading-relaxed">{tip.desc}</p>
                      </div>
-                     <ExternalLink className="w-3.5 h-3.5 text-gold-600" />
-                   </a>
-                 ))}
-               </div>
-             )}
+                   ))}
+                </div>
+             </div>
           </div>
 
-          <div className="space-y-8">
+          <div id="prompt" className="space-y-8 scroll-mt-24">
              <h2 className="text-2xl font-serif text-gold-600 flex items-center space-x-2">
                 <Code className="w-6 h-6" />
                 <span>프롬프트 예시 (M.A.K.E.R)</span>
@@ -120,10 +163,10 @@ export default function ResourcesPage() {
                    <motion.div 
                      key={i} 
                      whileHover={{ x: 5 }}
-                     className="p-8 bg-ink-900 text-hanji-100 rounded-sm space-y-4 relative overflow-hidden"
+                     className="p-8 bg-ink-900 text-hanji-100 rounded-sm space-y-4 relative overflow-hidden shadow-xl"
                    >
                       <div className="flex justify-between items-start">
-                         <span className="text-xs text-gold-500 uppercase tracking-widest font-serif">{ex.app}</span>
+                         <span className="text-[10px] text-gold-500 uppercase tracking-widest font-serif">{ex.app}</span>
                          <Sparkles className="w-4 h-4 text-gold-500 opacity-30" />
                       </div>
                       <h4 className="text-lg font-serif">{ex.target}</h4>
@@ -137,13 +180,13 @@ export default function ResourcesPage() {
                    <motion.div 
                      key={res.id}
                      whileHover={{ x: 5 }}
-                     className="p-6 bg-white border border-gold-500/20 text-ink-900 rounded-sm space-y-3"
+                     className="p-6 bg-white border border-gold-500/20 text-ink-900 rounded-sm space-y-3 shadow-sm"
                    >
                       <div className="flex items-center justify-between">
-                         <h4 className="font-serif font-bold">{res.title}</h4>
-                         <a href={res.fileUrl} target="_blank" className="text-gold-600"><ExternalLink className="w-4 h-4" /></a>
+                         <h4 className="font-serif font-bold text-sm">{res.title}</h4>
+                         <a href={res.fileUrl} target="_blank" rel="noopener noreferrer" className="text-gold-600 hover:text-gold-700"><ExternalLink className="w-4 h-4" /></a>
                       </div>
-                      <div className="text-xs text-ink-800/40 font-serif flex items-center space-x-2">
+                      <div className="text-[10px] text-ink-800/40 font-serif flex items-center space-x-2 uppercase tracking-tight">
                          {res.type === 'image' ? <ImageIcon className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
                          <span>추가 예시 {res.type === 'image' ? '이미지' : '문서'}</span>
                       </div>
@@ -153,7 +196,9 @@ export default function ResourcesPage() {
           </div>
        </div>
 
-       <AdminUpload initialCategory="AI 활용 가이드" />
+       <div className="pt-20 border-t border-gold-500/10">
+          <AdminUpload initialCategory="수업 지도안" />
+       </div>
     </div>
   );
 }
