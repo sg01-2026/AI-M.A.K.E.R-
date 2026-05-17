@@ -21,16 +21,10 @@ export default function Home() {
         <div className="absolute inset-0 bg-ink-900 overflow-hidden">
           <div className="absolute inset-0 opacity-40 mix-blend-overlay hanji-texture" />
           <img 
-            src="/hero_main.png" 
+            src="/src/assets/images/hero_main_archival_1779032599489.png" 
             alt="Siheung Heritage Hero Illustration"
             className="w-full h-full object-cover opacity-95 scale-100 transition-all duration-1000"
             referrerPolicy="no-referrer"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              // High quality archival-style fallback using a more appropriate Unsplash image
-              target.src = "https://images.unsplash.com/photo-1547826039-bfc35e0f1ea8?q=80&w=2072&auto=format&fit=crop";
-              target.className = "w-full h-full object-cover opacity-60 scale-105 contrast-[1.1] sepia-[0.1]";
-            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-transparent to-ink-900/50" />
           
