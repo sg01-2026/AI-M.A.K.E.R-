@@ -10,6 +10,9 @@ import Home from './pages/Home';
 import HeritagePage from './pages/HeritagePage';
 import ResourcesPage from './pages/ResourcesPage';
 import ClubsPage from './pages/ClubsPage';
+import StaffPage from './pages/StaffPage';
+import PromotionPage from './pages/PromotionPage';
+import ContestPage from './pages/ContestPage';
 
 export default function App() {
   return (
@@ -22,6 +25,9 @@ export default function App() {
             <Route path="/heritage" element={<Home />} />
             <Route path="/resources" element={<ResourcesPage />} />
             <Route path="/clubs/:level" element={<ClubsPage />} />
+            <Route path="/staff" element={<StaffPage />} />
+            <Route path="/promotion" element={<PromotionPage />} />
+            <Route path="/contest" element={<ContestPage />} />
             {/* Add more routes as needed */}
           </Routes>
         </Layout>

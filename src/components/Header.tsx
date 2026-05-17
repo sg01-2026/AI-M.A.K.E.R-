@@ -30,7 +30,7 @@ const menuItems = [
   {
     title: '교직원연수',
     icon: <Info className="w-4 h-4" />,
-    sub: ['AI 활용 연수', '디지털 수업 사례', '지역문화 연계 수업', '프로젝트 운영 자료']
+    sub: ['AI활용연수', '디지털수업사례', 'AI체험프로그램', '프로젝트 운영자료']
   },
   {
     title: '학부모참여 프로젝트학습',
@@ -40,7 +40,7 @@ const menuItems = [
   {
     title: '홍보',
     icon: <Share2 className="w-4 h-4" />,
-    sub: ['갤러리', '프로젝트 소식', '지역교과서 탑재', '활동 영상']
+    sub: ['갤러리', '프로젝트소식', '지역교과서탑재', '활동영상']
   },
   {
     title: 'AI경진대회',
@@ -82,6 +82,33 @@ export default function Header() {
       };
       return `/resources#${sectionMap[subItem] || ''}`;
     }
+    if (itemTitle === '교직원연수') {
+      const sectionMap: Record<string, string> = {
+        'AI활용연수': 'ai-training',
+        '디지털수업사례': 'digital-case',
+        'AI체험프로그램': 'ai-experience',
+        '프로젝트 운영자료': 'project-data'
+      };
+      return `/staff#${sectionMap[subItem] || ''}`;
+    }
+    if (itemTitle === '홍보') {
+      const sectionMap: Record<string, string> = {
+        '갤러리': 'gallery',
+        '프로젝트소식': 'news',
+        '지역교과서탑재': 'textbook',
+        '활동영상': 'videos'
+      };
+      return `/promotion#${sectionMap[subItem] || ''}`;
+    }
+    if (itemTitle === 'AI경진대회') {
+      const sectionMap: Record<string, string> = {
+        '대회 안내': 'info',
+        '작품 제출': 'submit',
+        '우수작 발표': 'winners',
+        '수상작 전시': 'exhibit'
+      };
+      return `/contest#${sectionMap[subItem] || ''}`;
+    }
     
     // Default cases for other menus can be projects or specific pages
     if (subItem === '활동 갤러리' || subItem === '갤러리') return '/project/갤러리'; // Example handler
@@ -96,12 +123,12 @@ export default function Header() {
       }`}
     >
       {/* Top Utility Bar */}
-      <div className="border-b border-gold-500/10 bg-hanji-200/50 backdrop-blur-sm py-2">
+      <div className="border-b border-gold-500/10 bg-hanji-200/40 backdrop-blur-sm py-1.5">
         <div className="max-w-7xl mx-auto px-4 flex justify-end items-center">
           {user ? (
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <span className="text-[9px] text-gold-600 font-serif uppercase tracking-widest bg-gold-500/10 px-2 py-0.5 rounded-full border border-gold-500/20">
+                <span className="text-[8px] text-gold-600 font-serif uppercase tracking-widest bg-gold-500/10 px-2 py-0.5 rounded-full border border-gold-500/20">
                   {isAdmin ? 'Administrator' : 'Student'}
                 </span>
                 <span className="text-[10px] text-ink-900/60 font-serif">{user.email}</span>
@@ -111,15 +138,15 @@ export default function Header() {
                 className="text-ink-800/40 hover:text-red-500 transition-colors"
                 title="Logout"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-3 h-3" />
               </button>
             </div>
           ) : (
             <button 
               onClick={handleLogin}
-              className="group flex items-center space-x-1.5 text-ink-800/40 text-[9px] font-serif hover:text-gold-600 transition-all uppercase tracking-widest"
+              className="group flex items-center space-x-1.5 text-ink-800/40 text-[8px] font-serif hover:text-gold-600 transition-all uppercase tracking-widest"
             >
-              <ShieldCheck className="w-3 h-3" />
+              <ShieldCheck className="w-2.5 h-2.5" />
               <span>Admin Access</span>
             </button>
           )}
@@ -129,12 +156,12 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
         <div className="flex items-center space-x-8">
           <Link to="/" className="flex items-center space-x-3 group">
-            <div className="w-10 h-10 bg-ink-900 flex items-center justify-center rounded-sm group-hover:rotate-12 transition-transform duration-300 shadow-lg">
-               <span className="text-gold-500 font-serif font-bold text-xl">M</span>
+            <div className="w-10 h-10 bg-gold-500 flex items-center justify-center rounded-sm group-hover:rotate-12 transition-transform duration-300 shadow-lg">
+               <span className="text-ink-900 font-serif font-bold text-xl">M</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-ink-900 font-bold text-lg leading-tight tracking-tight">시흥문화유산</span>
-              <span className="text-gold-600 text-[9px] font-serif uppercase tracking-[0.2em] opacity-80">M.A.K.E.R Project</span>
+              <span className={`font-bold text-lg leading-tight tracking-tight transition-colors ${scrolled ? 'text-gold-500' : 'text-white'}`}>시흥문화유산</span>
+              <span className={`text-[9px] font-serif uppercase tracking-[0.2em] font-bold ${scrolled ? 'text-ink-900/60' : 'text-gold-500/80'}`}>M.A.K.E.R Project</span>
             </div>
           </Link>
 
@@ -147,7 +174,9 @@ export default function Header() {
                 onMouseEnter={() => setActiveSub(item.title)}
                 onMouseLeave={() => setActiveSub(null)}
               >
-                <button className="flex items-center space-x-1 py-4 text-ink-800 hover:text-gold-600 transition-colors duration-200 text-[13px] font-medium">
+                <button className={`flex items-center space-x-1 py-4 transition-colors duration-200 text-[13px] font-bold ${
+                  scrolled ? 'text-gold-600 hover:text-ink-900' : 'text-gold-500 hover:text-white'
+                }`}>
                   <span>{item.title}</span>
                   <ChevronDown className="w-3 h-3 opacity-30" />
                 </button>

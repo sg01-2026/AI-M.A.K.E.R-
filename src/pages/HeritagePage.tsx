@@ -96,7 +96,7 @@ export default function HeritagePage() {
       </section>
 
       {/* M.A.K.E.R Navigation */}
-      <section className="sticky top-20 z-30 bg-hanji-100/80 backdrop-blur-md border-y border-gold-500/10">
+      <section className="sticky top-[112px] z-30 bg-hanji-100/80 backdrop-blur-md border-y border-gold-500/10">
         <div className="max-w-7xl mx-auto px-4">
            <div className="flex overflow-x-auto no-scrollbar">
               {tabs.map((tab) => (

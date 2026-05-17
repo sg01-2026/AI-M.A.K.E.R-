@@ -104,7 +104,7 @@ export default function ResourcesPage() {
        </div>
 
        {/* Quick Section Nav */}
-       <div className="sticky top-20 z-30 bg-hanji-100/95 backdrop-blur-md border-b border-gold-500/10 py-4 -mt-10 overflow-x-auto no-scrollbar">
+       <div className="sticky top-[112px] z-30 bg-hanji-100/95 backdrop-blur-md border-b border-gold-500/10 py-4 -mt-10 overflow-x-auto no-scrollbar">
           <div className="flex items-center justify-center space-x-8 px-4">
              {[
                { id: 'lesson', label: '수업 지도안' },
