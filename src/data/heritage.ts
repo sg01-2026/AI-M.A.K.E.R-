@@ -145,9 +145,9 @@ export const heritageData: Record<string, HeritageData> = {
       6: '바다와 불꽃의 소리 (앰비언트 OST)'
     }
   },
-  '군자봉황제': {
+  '군자봉성황제': {
     id: 'gunja',
-    name: '군자봉황제',
+    name: '군자봉성황제',
     meet: {
       intro: '시흥의 명산 군자봉에서 열리는 성황제로, 마을의 안녕과 평안을 빌던 전통 축제입니다.',
       stories: ['군자봉 성황신의 전설', '마을을 지키는 서낭당 이야기', '황제의 행렬'],

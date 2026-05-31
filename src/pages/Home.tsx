@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { ChevronRight, ArrowDown, MapPin, Sparkles, BookOpen, PenTool, Share2 } from 'lucide-react';
+import { ChevronRight, ArrowDown, MapPin, Sparkles, BookOpen, PenTool, Share2, Code, Rocket } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminUpload from '../components/AdminUpload';
 
@@ -7,7 +7,7 @@ const categories = [
   { name: '호조벌', img: 'https://picsum.photos/seed/hozo/600/400' },
   { name: '관곡지', img: 'https://picsum.photos/seed/gwangok/600/400' },
   { name: '오이도 패총', img: 'https://picsum.photos/seed/oido/600/400' },
-  { name: '군자봉황제', img: 'https://picsum.photos/seed/gunja/600/400' },
+  { name: '군자봉성황제', img: 'https://picsum.photos/seed/gunja/600/400' },
   { name: '능곡선사유적지', img: 'https://picsum.photos/seed/neunggok/600/400' },
   { name: '갯골·염전', img: 'https://picsum.photos/seed/salt/600/400' },
   { name: '생금집', img: 'https://picsum.photos/seed/saenggeum/600/400' },
@@ -107,41 +107,6 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* M.A.K.E.R Section */}
-      <section className="py-32 px-4 bg-hanji-100 relative overflow-hidden">
-        <div className="hanji-texture absolute inset-0 opacity-10" />
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="text-center mb-20 space-y-4">
-             <h2 className="text-4xl md:text-6xl font-serif text-ink-900">M.A.K.E.R</h2>
-             <div className="h-1 w-24 bg-gold-500 mx-auto" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-            {[
-              { char: 'M', word: 'Meet', desc: '문화유산 만나기', icon: <MapPin className="w-6 h-6 text-gold-600" /> },
-              { char: 'A', word: 'Ask', desc: '질문하고 탐구하기', icon: <BookOpen className="w-6 h-6 text-gold-600" /> },
-              { char: 'K', word: 'Know', desc: '역사와 의미 이해하기', icon: <Sparkles className="w-6 h-6 text-gold-600" /> },
-              { char: 'E', word: 'Express', desc: '학년별 프로젝트 표현', icon: <PenTool className="w-6 h-6 text-gold-600" /> },
-              { char: 'R', word: 'Relate', desc: '현재와 미래 연결하기', icon: <Share2 className="w-6 h-6 text-gold-600" /> },
-            ].map((item, idx) => (
-              <motion.div 
-                key={item.char}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                viewport={{ once: true }}
-                className="group p-8 bg-white/50 backdrop-blur-sm border border-gold-500/10 hover:border-gold-500/40 transition-all duration-500 hover:-translate-y-2"
-              >
-                <div className="text-5xl font-serif font-black text-gold-500/20 group-hover:text-gold-500/40 transition-colors mb-4">{item.char}</div>
-                <div className="mb-4">{item.icon}</div>
-                <h3 className="text-xl font-serif text-ink-900 mb-2 group-hover:text-gold-600 transition-colors">{item.word}</h3>
-                <p className="text-sm text-ink-800/60 font-serif leading-relaxed">{item.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Heritage Gallery Section */}
       <section className="py-32 px-4 bg-ink-900 text-hanji-100">
         <div className="max-w-7xl mx-auto">
@@ -188,6 +153,97 @@ export default function Home() {
                  </motion.div>
                </Link>
              ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Student Clubs Section */}
+      <section className="py-24 px-4 bg-hanji-50 relative overflow-hidden">
+        <div className="hanji-texture absolute inset-0 opacity-10" />
+        <div className="max-w-7xl mx-auto relative z-10 text-center">
+          <div className="space-y-4 mb-16">
+            <span className="text-gold-600 font-serif uppercase tracking-widest text-xs">Student Clubs</span>
+            <h2 className="text-4xl md:text-5xl font-serif text-ink-900">시흥문화유산 학생동아리</h2>
+            <div className="h-1 w-20 bg-gold-500 mx-auto" />
+          </div>
+
+          <div className="flex flex-col space-y-8">
+            {/* Beginner Level (Prominent) */}
+            <div className="max-w-3xl mx-auto w-full">
+              <Link 
+                to="/clubs/기본1 (기초)"
+                className="group p-10 bg-white border border-gold-500/10 hover:border-gold-500/40 transition-all duration-500 flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8 text-left"
+              >
+                <div className="p-6 bg-gold-500/10 text-gold-600 rounded-full group-hover:scale-110 transition-transform">
+                  <PenTool className="w-10 h-10" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <div className="text-xs text-gold-600/60 font-serif uppercase tracking-[0.3em] font-bold">Level 01 · Beginner</div>
+                  <h3 className="text-2xl font-serif text-ink-900">기본1 (기초)</h3>
+                  <p className="text-ink-800/60 font-serif text-sm leading-relaxed max-w-lg">AI 프로젝트의 기초를 다지고 시흥 문화유산을 처음 만나는 입문 단계입니다.</p>
+                </div>
+                <ChevronRight className="w-6 h-6 text-ink-800/10 group-hover:text-gold-600 group-hover:translate-x-1 transition-all self-center" />
+              </Link>
+            </div>
+
+            {/* Intermediate and Advanced Below */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto w-full">
+              {[
+                { name: '기본2(중급)', level: 'Level 02 · Intermediate', icon: <Code className="w-8 h-8" />, desc: 'AI 도구를 활용해 시흥 이야기를 창의적으로 재구성합니다.' },
+                { name: '기본3(고급)', level: 'Level 03 · Advanced', icon: <Rocket className="w-8 h-8" />, desc: 'AI 기술로 고도화된 지역 문화 아카이브를 제작합니다.' },
+              ].map((club) => (
+                <Link 
+                  key={club.name}
+                  to={`/clubs/${club.name}`}
+                  className="group p-8 bg-white border border-gold-500/10 hover:border-gold-500/40 transition-all duration-500 flex flex-col items-center text-center space-y-4"
+                >
+                  <div className="p-4 bg-gold-500/10 text-gold-600 rounded-full group-hover:scale-110 transition-transform">
+                    {club.icon}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-[10px] text-gold-600/60 font-serif uppercase tracking-widest font-bold">{club.level}</div>
+                    <h3 className="text-xl font-serif text-ink-900">{club.name}</h3>
+                    <p className="text-ink-800/40 font-serif text-xs px-4">{club.desc}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-ink-800/20 group-hover:text-gold-600 group-hover:translate-x-1 transition-all" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* M.A.K.E.R Section */}
+      <section className="py-32 px-4 bg-hanji-100 relative overflow-hidden">
+        <div className="hanji-texture absolute inset-0 opacity-10" />
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="text-center mb-20 space-y-4">
+             <h2 className="text-4xl md:text-6xl font-serif text-ink-900">M.A.K.E.R</h2>
+             <div className="h-1 w-24 bg-gold-500 mx-auto" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+            {[
+              { char: 'M', word: 'Meet', desc: '문화유산 만나기', icon: <MapPin className="w-6 h-6 text-gold-600" /> },
+              { char: 'A', word: 'Ask', desc: '질문하고 탐구하기', icon: <BookOpen className="w-6 h-6 text-gold-600" /> },
+              { char: 'K', word: 'Know', desc: '역사와 의미 이해하기', icon: <Sparkles className="w-6 h-6 text-gold-600" /> },
+              { char: 'E', word: 'Express', desc: '학년별 프로젝트 표현', icon: <PenTool className="w-6 h-6 text-gold-600" /> },
+              { char: 'R', word: 'Relate', desc: '현재와 미래 연결하기', icon: <Share2 className="w-6 h-6 text-gold-600" /> },
+            ].map((item, idx) => (
+              <motion.div 
+                key={item.char}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                viewport={{ once: true }}
+                className="group p-8 bg-white/50 backdrop-blur-sm border border-gold-500/10 hover:border-gold-500/40 transition-all duration-500 hover:-translate-y-2"
+              >
+                <div className="text-5xl font-serif font-black text-gold-500/20 group-hover:text-gold-500/40 transition-colors mb-4">{item.char}</div>
+                <div className="mb-4">{item.icon}</div>
+                <h3 className="text-xl font-serif text-ink-900 mb-2 group-hover:text-gold-600 transition-colors">{item.word}</h3>
+                <p className="text-sm text-ink-800/60 font-serif leading-relaxed">{item.desc}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>

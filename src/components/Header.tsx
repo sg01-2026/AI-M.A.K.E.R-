@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown, BookOpen, Users, Award, Calendar, Share2, Info, GraduationCap, LogIn, LogOut, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -10,12 +10,12 @@ const menuItems = [
   {
     title: '학생동아리',
     icon: <Users className="w-4 h-4" />,
-    sub: ['기본1 (기초)', '기본2 (중급)', '기본3 (심화)']
+    sub: ['기본1 (기초)', '기본2(중급)', '기본3(고급)']
   },
   {
     title: '지역문화유산 프로젝트',
     icon: <BookOpen className="w-4 h-4" />,
-    sub: ['호조벌', '관곡지', '오이도 패총', '군자봉황제', '능곡선사유적지', '갯골·염전', '생금집']
+    sub: ['호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집']
   },
   {
     title: '지도안 · 학습지',
@@ -53,14 +53,33 @@ export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSub, setActiveSub] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginId, setLoginId] = useState('');
+  const [loginPw, setLoginPw] = useState('');
+  const [loginError, setLoginError] = useState('');
+  
   const location = useLocation();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, login } = useAuth();
 
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
+      setShowLoginModal(false);
     } catch (error) {
       console.error("Login failed", error);
+    }
+  };
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    const success = await login(loginId, loginPw);
+    if (success) {
+      setShowLoginModal(false);
+      setLoginId('');
+      setLoginPw('');
+    } else {
+      setLoginError('아이디 또는 비밀번호가 일치하지 않습니다.');
     }
   };
 
@@ -129,7 +148,7 @@ export default function Header() {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <span className="text-[8px] text-gold-600 font-serif uppercase tracking-widest bg-gold-500/10 px-2 py-0.5 rounded-full border border-gold-500/20">
-                  {isAdmin ? 'Administrator' : 'Student'}
+                  {isAdmin ? (user.uid === 'mock-admin' ? 'System Admin' : 'Administrator') : 'Student'}
                 </span>
                 <span className="text-[10px] text-ink-900/60 font-serif">{user.email}</span>
               </div>
@@ -143,7 +162,7 @@ export default function Header() {
             </div>
           ) : (
             <button 
-              onClick={handleLogin}
+              onClick={() => setShowLoginModal(true)}
               className="group flex items-center space-x-1.5 text-ink-800/40 text-[8px] font-serif hover:text-gold-600 transition-all uppercase tracking-widest"
             >
               <ShieldCheck className="w-2.5 h-2.5" />
@@ -250,6 +269,99 @@ export default function Header() {
               ))}
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Login Modal */}
+      <AnimatePresence>
+        {showLoginModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-ink-900/60 backdrop-blur-sm"
+              onClick={() => setShowLoginModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-hanji-50 border border-gold-500/30 shadow-2xl p-8"
+            >
+              <div className="hanji-texture absolute inset-0 opacity-10 pointer-events-none" />
+              <div className="relative z-10 space-y-8">
+                <div className="text-center space-y-2">
+                  <div className="w-16 h-16 bg-gold-500 flex items-center justify-center mx-auto mb-4 shadow-lg rotate-3 group">
+                     <ShieldCheck className="w-8 h-8 text-ink-900 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <h3 className="text-2xl font-serif text-ink-900">Administrator Access</h3>
+                  <p className="text-ink-800/40 text-xs font-serif italic uppercase tracking-widest">Authorized Personnel Only</p>
+                </div>
+
+                <form onSubmit={handleAdminLogin} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-ink-900/40 font-serif uppercase tracking-widest ml-1">Identity ID</label>
+                    <input 
+                      type="text" 
+                      value={loginId}
+                      onChange={(e) => setLoginId(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-ink-900/10 focus:border-gold-500/40 outline-none font-serif text-sm transition-all"
+                      placeholder="Enter ID"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-ink-900/40 font-serif uppercase tracking-widest ml-1">Access Token</label>
+                    <input 
+                      type="password" 
+                      value={loginPw}
+                      onChange={(e) => setLoginPw(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-ink-900/10 focus:border-gold-500/40 outline-none font-serif text-sm transition-all"
+                      placeholder="Enter Password"
+                      required
+                    />
+                  </div>
+                  
+                  {loginError && (
+                    <p className="text-red-500 text-[10px] font-serif text-center">{loginError}</p>
+                  )}
+
+                  <button 
+                    type="submit"
+                    className="w-full py-4 bg-ink-900 text-gold-500 font-serif text-sm hover:bg-ink-800 transition-colors uppercase tracking-[0.2em] font-bold shadow-lg"
+                  >
+                    Authenticate
+                  </button>
+                </form>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-ink-900/10"></div></div>
+                  <div className="relative flex justify-center text-[10px] uppercase tracking-widest"><span className="bg-hanji-50 px-2 text-ink-800/20 font-serif">OR continue with</span></div>
+                </div>
+
+                <button 
+                  onClick={handleGoogleLogin}
+                  className="w-full py-4 bg-white border border-ink-900/10 text-ink-900 font-serif text-sm hover:border-gold-500/30 transition-all flex items-center justify-center space-x-3 shadow-sm"
+                >
+                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
+                  <span className="uppercase tracking-widest font-bold text-[11px]">Google Workspace</span>
+                </button>
+                
+                <p className="text-center text-[9px] text-ink-800/20 font-serif leading-relaxed">
+                  Notice: All access attempts are recorded for investigative audit purposes.<br/>
+                  Maker Project Information Security Division.
+                </p>
+              </div>
+              
+              <button 
+                onClick={() => setShowLoginModal(false)}
+                className="absolute top-4 right-4 text-ink-800/20 hover:text-ink-900 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </header>

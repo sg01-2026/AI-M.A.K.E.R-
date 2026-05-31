@@ -1,6 +1,7 @@
-import { useState, FormEvent, useEffect } from 'react';
+import React, { useState, FormEvent, useEffect, useRef } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestoreUtils';
 import { useAuth } from '../context/AuthContext';
 import { Upload, FileText, Image as ImageIcon, X, ChevronDown } from 'lucide-react';
@@ -14,8 +15,11 @@ interface AdminUploadProps {
 
 export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminUploadProps) {
   const { isAdmin } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [form, setForm] = useState({
     title: '',
     type: 'image' as 'image' | 'pdf',
@@ -32,6 +36,23 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
 
   if (!isAdmin) return null;
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      // Auto-set title if empty
+      if (!form.title) {
+        setForm(prev => ({ ...prev, title: file.name.split('.')[0] }));
+      }
+      // Auto-set type based on extension
+      if (file.type.includes('pdf')) {
+        setForm(prev => ({ ...prev, type: 'pdf' }));
+      } else if (file.type.includes('image')) {
+        setForm(prev => ({ ...prev, type: 'image' }));
+      }
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -39,8 +60,24 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
     try {
       if (!auth.currentUser) throw new Error("Not authenticated");
 
+      let finalFileUrl = form.fileUrl;
+
+      if (selectedFile) {
+        setUploadProgress(10);
+        const storageRef = ref(storage, `resources/${Date.now()}_${selectedFile.name}`);
+        const snapshot = await uploadBytes(storageRef, selectedFile);
+        setUploadProgress(50);
+        finalFileUrl = await getDownloadURL(snapshot.ref);
+        setUploadProgress(90);
+      }
+
+      if (!finalFileUrl) {
+         throw new Error("파일을 업로드하거나 URL을 입력해주세요.");
+      }
+
       const resourceData = {
         ...form,
+        fileUrl: finalFileUrl,
         authorId: auth.currentUser.uid,
         authorEmail: auth.currentUser.email,
         createdAt: serverTimestamp(),
@@ -49,6 +86,8 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
       await addDoc(collection(db, 'resources'), resourceData);
       
       setForm({ ...form, title: '', type: 'image', fileUrl: '', description: '' });
+      setSelectedFile(null);
+      setUploadProgress(0);
       setIsOpen(false);
       if (onUploadSuccess) onUploadSuccess();
     } catch (error) {
@@ -59,13 +98,27 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
   };
 
   return (
-    <div className="fixed bottom-8 right-8 z-50">
-      <button 
-        onClick={() => setIsOpen(true)}
-        className="bg-gold-500 text-ink-900 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
-      >
-        <Upload className="w-6 h-6" />
-      </button>
+    <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end space-y-3">
+      <AnimatePresence>
+        {!isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="flex items-center space-x-3"
+          >
+            <div className="bg-ink-900/80 backdrop-blur-md px-4 py-2 border border-gold-500/30 shadow-xl rounded-sm">
+              <p className="text-[10px] text-gold-500 font-serif uppercase tracking-widest font-bold">New Post</p>
+            </div>
+            <button 
+              onClick={() => setIsOpen(true)}
+              className="bg-gold-500 text-ink-900 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-4 border-ink-900 animate-pulse"
+            >
+              <Upload className="w-7 h-7" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isOpen && (
@@ -116,6 +169,54 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
                     </div>
                   </div>
 
+                  <div className="space-y-4">
+                    <label className="text-xs text-ink-800/60 uppercase">자료 파일 선택</label>
+                    <input 
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept="image/*,.pdf"
+                    />
+                    
+                    {!selectedFile ? (
+                      <button 
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full h-32 border-2 border-dashed border-gold-500/20 hover:border-gold-500/50 transition-all flex flex-col items-center justify-center space-y-3 group bg-gold-500/5"
+                      >
+                        <div className="p-3 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform">
+                          <Upload className="w-5 h-5 text-gold-500" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm text-ink-900">내 컴퓨터에서 파일 선택</p>
+                          <p className="text-[10px] text-ink-800/40 uppercase tracking-tighter">Images or PDF (Max 10MB)</p>
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="p-4 bg-white border border-gold-500/30 flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          {selectedFile.type.includes('pdf') ? (
+                            <FileText className="w-5 h-5 text-red-500" />
+                          ) : (
+                            <ImageIcon className="w-5 h-5 text-blue-500" />
+                          )}
+                          <div>
+                            <p className="text-sm text-ink-900 font-medium truncate max-w-[200px]">{selectedFile.name}</p>
+                            <p className="text-[10px] text-ink-800/40">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                          </div>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setSelectedFile(null)}
+                          className="p-1 hover:bg-gold-500/10 rounded-full text-ink-800/40 hover:text-red-500 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-xs text-ink-800/60 uppercase">자료 제목</label>
                     <input 
@@ -151,24 +252,32 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
                     </button>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs text-ink-800/60 uppercase">파일 URL</label>
-                    <input 
-                      required
-                      type="url"
-                      value={form.fileUrl}
-                      onChange={e => setForm({ ...form, fileUrl: e.target.value })}
-                      className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors text-ink-900"
-                      placeholder="https://..."
-                    />
-                    <p className="text-[10px] text-ink-800/40 italic">* 외부 링크나 클라우드 주소를 입력해 주세요.</p>
-                  </div>
+                  {!selectedFile && (
+                    <div className="space-y-2">
+                      <label className="text-xs text-ink-800/60 uppercase">파일 URL (선택사항)</label>
+                      <input 
+                        type="url"
+                        value={form.fileUrl}
+                        onChange={e => setForm({ ...form, fileUrl: e.target.value })}
+                        className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors text-ink-900"
+                        placeholder="https://..."
+                      />
+                      <p className="text-[10px] text-ink-800/40 italic">* 파일을 직접 올리지 않을 경우 외부 링크를 입력해 주세요.</p>
+                    </div>
+                  )}
 
                   <button 
                     disabled={loading}
-                    className="w-full py-4 bg-ink-900 text-gold-500 font-bold uppercase tracking-widest hover:bg-ink-800 transition-all disabled:opacity-50 mt-4"
+                    className="w-full py-4 bg-ink-900 text-gold-500 font-bold uppercase tracking-widest hover:bg-ink-800 transition-all disabled:opacity-50 mt-4 relative overflow-hidden"
                   >
-                    {loading ? '업로드 중...' : '아카이브에 기록하기'}
+                    {loading && (
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        className="absolute inset-0 bg-gold-500/20"
+                      />
+                    )}
+                    <span className="relative z-10">{loading ? '제출 중...' : '아카이브에 기록하기'}</span>
                   </button>
                 </form>
               </div>
