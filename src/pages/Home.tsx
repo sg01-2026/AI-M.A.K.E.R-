@@ -21,7 +21,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-ink-900 overflow-hidden">
           <div className="absolute inset-0 opacity-40 mix-blend-overlay hanji-texture" />
           <img 
-            src="/src/assets/images/hero_main_archival_1779032599489.png" 
+            src="/src/assets/images/saenggeumjib_heritage_hero_1780207752002.png" 
             alt="Siheung Heritage Hero Illustration"
             className="w-full h-full object-cover opacity-95 scale-100 transition-all duration-1000"
             referrerPolicy="no-referrer"
