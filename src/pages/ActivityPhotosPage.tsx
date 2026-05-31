@@ -85,6 +85,8 @@ export default function ActivityPhotosPage() {
   const [photos, setPhotos] = useState<ActivityPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
+  const [selectedMakerStage, setSelectedMakerStage] = useState<string>('전체');
+  const [selectedHeritage, setSelectedHeritage] = useState<string>('전체');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
   // Modal state
@@ -100,6 +102,8 @@ export default function ActivityPhotosPage() {
   const [authorSelectType, setAuthorSelectType] = useState('유아교육과');
   const [newCustomAuthor, setNewCustomAuthor] = useState('');
   const [newMakerStage, setNewMakerStage] = useState('');
+  const [newHeritageSelect, setNewHeritageSelect] = useState('호조벌');
+  const [newCustomHeritage, setNewCustomHeritage] = useState('');
   const [newDisplayDate, setNewDisplayDate] = useState(new Date().toISOString().split('T')[0]);
   const [newImageUrl, setNewImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -217,9 +221,16 @@ export default function ActivityPhotosPage() {
         return;
       }
 
+      const chosenHeritage = newHeritageSelect === '기타' ? newCustomHeritage.trim() : newHeritageSelect;
+      const finalTitlePart = newTitle.trim() ? ` - ${newTitle.trim()}` : '';
+      const baseTitle = newHeritageSelect === '기타' ? newCustomHeritage.trim() : newHeritageSelect;
+      const computedTitleWithoutStage = baseTitle ? (baseTitle + finalTitlePart) : newTitle.trim();
+
+      const finalTitle = newMakerStage ? `[${newMakerStage}] ${computedTitleWithoutStage}` : computedTitleWithoutStage;
+
       // 2. Save document to Firestore
       const docData = {
-        title: newMakerStage ? `[${newMakerStage}] ${newTitle.trim()}` : newTitle.trim(),
+        title: finalTitle,
         eventDate: newEventDate.trim(),
         description: newDescription.trim(),
         category: newCategory,
@@ -227,7 +238,9 @@ export default function ActivityPhotosPage() {
         imageUrl: finalImageUrl,
         viewCount: 0,
         createdAt: serverTimestamp(),
-        displayDate: newDisplayDate
+        displayDate: newDisplayDate,
+        makerStage: newMakerStage || null,
+        heritage: chosenHeritage || null
       };
 
       await addDoc(collection(db, 'activity_photos'), docData);
@@ -240,6 +253,8 @@ export default function ActivityPhotosPage() {
       setAuthorSelectType('유아교육과');
       setNewCustomAuthor('');
       setNewMakerStage('');
+      setNewHeritageSelect('호조벌');
+      setNewCustomHeritage('');
       setNewDisplayDate(new Date().toISOString().split('T')[0]);
       setNewImageUrl('');
       setImageFile(null);
@@ -276,16 +291,34 @@ export default function ActivityPhotosPage() {
 
   // Filtering
   const filteredPhotos = displayPhotos.filter(photo => {
+    // 1. Category Filter
     const categoryMatch = selectedCategory === '전체' || photo.category === selectedCategory || 
       (selectedCategory === '기본2(중급)' && (photo.category as string) === '기본2(중급)') || 
       (selectedCategory === '기본3(고급)' && (photo.category as string) === '기본3(고급)');
     
+    // 2. Maker Stage Filter
+    const stageMatch = 
+      selectedMakerStage === '전체' ||
+      (photo as any).makerStage === selectedMakerStage ||
+      photo.title.includes(`[${selectedMakerStage}]`) ||
+      (selectedMakerStage && photo.title.startsWith(`[${selectedMakerStage.split(':')[0]}`)) ||
+      photo.title.includes(selectedMakerStage.split(':')[0]) ||
+      (selectedMakerStage.includes(':') && photo.title.includes(selectedMakerStage.split(':')[1]));
+
+    // 3. Heritage Filter
+    const heritageMatch = 
+      selectedHeritage === '전체' ||
+      (photo as any).heritage === selectedHeritage ||
+      photo.title.includes(selectedHeritage) ||
+      (selectedHeritage === '기타' && !['호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집'].some(h => photo.title.includes(h) || (photo as any).heritage === h));
+
+    // 4. Search Query Filter
     const searchMatch = searchQuery.trim() === '' || 
       photo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       photo.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       photo.author.toLowerCase().includes(searchQuery.toLowerCase());
       
-    return categoryMatch && searchMatch;
+    return categoryMatch && stageMatch && heritageMatch && searchMatch;
   });
 
   return (
@@ -343,6 +376,59 @@ export default function ActivityPhotosPage() {
               <span>활동 등록</span>
             </button>
           )}
+        </div>
+
+        {/* Interactive Filters Bar */}
+        <div className="bg-white border border-[#EADFCB] p-6 space-y-5 rounded-sm shadow-xs mb-8">
+          {/* MAKER Stage Selectors */}
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest min-w-[120px] font-sans">
+              M.A.K.E.R 단계
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {['전체', 'M:만남', 'A:질문', 'K:이해', 'E:표현', 'R:연결'].map(stage => {
+                const isActive = selectedMakerStage === stage;
+                return (
+                  <button
+                    key={stage}
+                    onClick={() => setSelectedMakerStage(stage)}
+                    className={`px-4 py-2 text-xs font-serif transition-all duration-300 border cursor-pointer rounded-sm ${
+                      isActive
+                        ? 'bg-[#1A1A1A] text-[#FAF8F5] border-[#1A1A1A] shadow-md font-bold'
+                        : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:border-zinc-400'
+                    }`}
+                  >
+                    {stage}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Cultural Heritage Selectors */}
+          <div className="flex flex-col md:flex-row md:items-center gap-3 pt-4 border-t border-zinc-200">
+            <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest min-w-[120px] font-sans">
+              문화유산 분류
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {['전체', '호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집', '기타'].map(heritage => {
+                const isActive = selectedHeritage === heritage;
+                return (
+                  <button
+                    key={heritage}
+                    onClick={() => setSelectedHeritage(heritage)}
+                    className={`px-4 py-2 text-xs font-serif transition-all duration-300 border cursor-pointer rounded-sm ${
+                      isActive
+                        ? 'bg-[#8C6239] text-[#FAF8F5] border-[#8C6239] shadow-md font-bold'
+                        : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:border-zinc-400'
+                    }`}
+                  >
+                    {heritage}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Dense Separator Line in benchmark color */}
@@ -578,13 +664,13 @@ export default function ActivityPhotosPage() {
                 <form onSubmit={handleUpload} className="space-y-4 font-serif text-xs">
                   {/* M.A.K.E.R Stage Selector */}
                   <div className="space-y-1">
-                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider block mb-1">M.A.K.E.R 단계 선택 (제목에 기입됨)</label>
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider block mb-1">M.A.K.E.R 단계 선택</label>
                     <select
                       className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239] cursor-pointer"
                       value={newMakerStage}
                       onChange={(e) => setNewMakerStage(e.target.value)}
                     >
-                      <option value="">선택 안 함 (직접 입력만)</option>
+                      <option value="">선택 안 함 (없음)</option>
                       <option value="M:만남">M:만남</option>
                       <option value="A:질문">A:질문</option>
                       <option value="K:이해">K:이해</option>
@@ -593,16 +679,48 @@ export default function ActivityPhotosPage() {
                     </select>
                   </div>
 
+                  {/* Cultural Heritage Selector */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider block mb-1">문화유산 분류 선택</label>
+                    <select
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239] cursor-pointer"
+                      value={newHeritageSelect}
+                      onChange={(e) => setNewHeritageSelect(e.target.value)}
+                    >
+                      <option value="호조벌">호조벌</option>
+                      <option value="관곡지">관곡지</option>
+                      <option value="오이도 패총">오이도 패총</option>
+                      <option value="군자봉성황제">군자봉성황제</option>
+                      <option value="능곡선사유적지">능곡선사유적지</option>
+                      <option value="갯골·염전">갯골·염전</option>
+                      <option value="생금집">생금집</option>
+                      <option value="기타">기타(입력)</option>
+                    </select>
+                  </div>
+
+                  {newHeritageSelect === '기타' && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-500 font-bold tracking-wider block mb-1">기타 문화유산 직접 입력</label>
+                      <input
+                        required
+                        type="text"
+                        className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
+                        placeholder="예: 생금쌍우물"
+                        value={newCustomHeritage}
+                        onChange={(e) => setNewCustomHeritage(e.target.value)}
+                      />
+                    </div>
+                  )}
+
                   {/* Title */}
                   <div className="space-y-1">
-                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">활동 제목 (예: 2026 스승의 날)</label>
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">활동 상세 제목 (선택사항)</label>
                     <input
                       type="text"
                       className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
-                      placeholder="행사 제목을 입력하세요"
+                      placeholder="예: 탐방 학습지 제작"
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
-                      required
                     />
                   </div>
 

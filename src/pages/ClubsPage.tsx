@@ -14,6 +14,8 @@ interface Resource {
   description: string;
   createdAt?: any;
   displayDate?: string;
+  makerStage?: string;
+  heritage?: string;
 }
 
 const clubLevels = {
@@ -43,6 +45,9 @@ const clubLevels = {
 export default function ClubsPage() {
   const { level } = useParams<{ level: string }>();
   const [resources, setResources] = useState<Resource[]>([]);
+  const [selectedMakerStage, setSelectedMakerStage] = useState<string>('전체');
+  const [selectedHeritage, setSelectedHeritage] = useState<string>('전체');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const currentLevel = clubLevels[level as keyof typeof clubLevels] || clubLevels['기본1 (기초)'];
 
   useEffect(() => {
@@ -62,6 +67,32 @@ export default function ClubsPage() {
 
     return () => unsubscribe();
   }, [level]);
+
+  const filteredResources = resources.filter(res => {
+    // 1. Maker Stage Filter
+    const stageMatch = 
+      selectedMakerStage === '전체' ||
+      res.makerStage === selectedMakerStage ||
+      res.title.includes(`[${selectedMakerStage}]`) ||
+      (selectedMakerStage && res.title.startsWith(`[${selectedMakerStage.split(':')[0]}`)) ||
+      res.title.includes(selectedMakerStage.split(':')[0]) ||
+      (selectedMakerStage.includes(':') && res.title.includes(selectedMakerStage.split(':')[1]));
+
+    // 2. Heritage Filter
+    const heritageMatch = 
+      selectedHeritage === '전체' ||
+      res.heritage === selectedHeritage ||
+      res.title.includes(selectedHeritage) ||
+      (selectedHeritage === '기타' && !['호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집'].some(h => res.title.includes(h) || res.heritage === h));
+
+    // 3. Search Query Filter
+    const searchMatch = 
+      searchQuery.trim() === '' ||
+      res.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (res.description && res.description.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return stageMatch && heritageMatch && searchMatch;
+  });
 
   return (
     <div className="min-h-screen bg-hanji-50 pb-20 font-serif">
@@ -128,18 +159,70 @@ export default function ClubsPage() {
              </div>
              
              <div className="flex w-full md:w-auto items-stretch shadow-sm">
-               <div className="flex-1 md:w-80 relative">
-                 <input 
-                   type="text" 
-                   placeholder="검색어를 입력하세요."
-                   className="w-full pl-4 pr-12 py-3.5 bg-white border border-ink-900/10 focus:border-gold-500/40 outline-none font-serif text-sm transition-all"
-                 />
-                 <Sparkles className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gold-500/40" />
-               </div>
-               <button className="px-8 py-3.5 bg-ink-900 text-gold-500 font-serif text-sm hover:bg-ink-800 transition-colors uppercase tracking-widest font-bold">
-                  Search
-               </button>
+                <div className="flex-1 md:w-80 relative">
+                  <input 
+                    type="text" 
+                    placeholder="검색어를 입력하세요."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-4 pr-12 py-3.5 bg-white border border-ink-900/10 focus:border-gold-500/40 outline-none font-serif text-sm transition-all text-ink-900"
+                  />
+                  <Sparkles className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gold-500/40" />
+                </div>
              </div>
+          </div>
+
+          {/* Interactive Filters Bar */}
+          <div className="bg-white border border-gold-500/10 p-6 space-y-5 shadow-xs">
+            {/* MAKER Stage Selectors */}
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
+              <span className="text-xs font-bold text-ink-800/60 uppercase tracking-widest min-w-[120px] font-sans">
+                M.A.K.E.R 단계
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {['전체', 'M:만남', 'A:질문', 'K:이해', 'E:표현', 'R:연결'].map(stage => {
+                  const isActive = selectedMakerStage === stage;
+                  return (
+                    <button
+                      key={stage}
+                      onClick={() => setSelectedMakerStage(stage)}
+                      className={`px-4 py-2 text-xs font-serif transition-all duration-300 border cursor-pointer ${
+                        isActive
+                          ? 'bg-ink-900 text-gold-500 border-ink-900 shadow-md font-bold'
+                          : 'bg-hanji-100/30 text-ink-800/70 border-gold-500/10 hover:border-gold-500/40'
+                      }`}
+                    >
+                      {stage}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cultural Heritage Selectors */}
+            <div className="flex flex-col md:flex-row md:items-center gap-3 pt-4 border-t border-gold-500/10">
+              <span className="text-xs font-bold text-ink-800/60 uppercase tracking-widest min-w-[120px] font-sans">
+                문화유산 분류
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {['전체', '호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집', '기타'].map(heritage => {
+                  const isActive = selectedHeritage === heritage;
+                  return (
+                    <button
+                      key={heritage}
+                      onClick={() => setSelectedHeritage(heritage)}
+                      className={`px-4 py-2 text-xs font-serif transition-all duration-300 border cursor-pointer ${
+                        isActive
+                          ? 'bg-gold-500 text-ink-900 border-gold-500 shadow-md font-bold'
+                          : 'bg-hanji-100/30 text-ink-800/70 border-gold-500/10 hover:border-gold-500/40'
+                      }`}
+                    >
+                      {heritage}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="bg-white border border-ink-900/5 overflow-hidden shadow-sm">
@@ -152,11 +235,11 @@ export default function ClubsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-900/5">
-                 {resources.length > 0 ? (
-                   resources.map((res, idx) => (
+                 {filteredResources.length > 0 ? (
+                   filteredResources.map((res, idx) => (
                      <tr key={res.id} className="hover:bg-gold-500/[0.01] transition-colors group cursor-pointer">
                        <td className="px-6 py-5 text-center font-serif text-sm text-ink-800/20">
-                         {resources.length - idx}
+                         {filteredResources.length - idx}
                        </td>
                        <td className="px-6 py-5">
                          <a 

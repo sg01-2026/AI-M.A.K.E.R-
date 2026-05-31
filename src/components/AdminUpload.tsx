@@ -21,7 +21,10 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [makerStage, setMakerStage] = useState('');
+  const [heritageSelect, setHeritageSelect] = useState('호조벌');
+  const [customHeritage, setCustomHeritage] = useState('');
   const [displayDate, setDisplayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [errorMsg, setErrorMsg] = useState('');
   const [form, setForm] = useState({
     title: '',
     type: 'image' as 'image' | 'pdf',
@@ -58,9 +61,10 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg('');
 
     try {
-      if (!auth.currentUser) throw new Error("Not authenticated");
+      if (!auth.currentUser) throw new Error("로그인이 필요합니다.");
 
       let finalFileUrl = form.fileUrl;
 
@@ -74,10 +78,15 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
       }
 
       if (!finalFileUrl) {
-         throw new Error("파일을 업로드하거나 URL을 입력해주세요.");
+         throw new Error("파일을 업로드하거나 파일 URL(외부 링크)을 작성해주세요.");
       }
 
-      const finalTitle = makerStage ? `[${makerStage}] ${form.title.trim()}` : form.title.trim();
+      const chosenHeritage = heritageSelect === '기타' ? customHeritage.trim() : heritageSelect;
+      const finalTitlePart = form.title.trim() ? ` - ${form.title.trim()}` : '';
+      const baseTitle = heritageSelect === '기타' ? customHeritage.trim() : heritageSelect;
+      const computedTitleWithoutStage = baseTitle ? (baseTitle + finalTitlePart) : form.title.trim();
+
+      const finalTitle = makerStage ? `[${makerStage}] ${computedTitleWithoutStage}` : computedTitleWithoutStage;
 
       const resourceData = {
         ...form,
@@ -86,7 +95,9 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
         authorId: auth.currentUser.uid,
         authorEmail: auth.currentUser.email,
         createdAt: serverTimestamp(),
-        displayDate: displayDate
+        displayDate: displayDate,
+        makerStage: makerStage || null,
+        heritage: chosenHeritage || null
       };
 
       await addDoc(collection(db, 'resources'), resourceData);
@@ -94,12 +105,28 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
       setForm({ ...form, title: '', type: 'image', fileUrl: '', description: '' });
       setSelectedFile(null);
       setMakerStage('');
+      setHeritageSelect('호조벌');
+      setCustomHeritage('');
       setDisplayDate(new Date().toISOString().split('T')[0]);
       setUploadProgress(0);
       setIsOpen(false);
+      alert('아카이브에 성공적으로 자료가 기록되었습니다!');
       if (onUploadSuccess) onUploadSuccess();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'resources');
+    } catch (error: any) {
+      console.error(error);
+      let errMsg = '자료 기록 중 오류가 발생했습니다.';
+      if (error instanceof Error) {
+        errMsg = error.message;
+      } else if (typeof error === 'string') {
+        errMsg = error;
+      } else if (typeof error === 'object' && error !== null) {
+        errMsg = error.message || JSON.stringify(error);
+      }
+
+      if (errMsg.includes('permission-denied') || errMsg.includes('Permission denied') || errMsg.includes('Missing or insufficient permissions')) {
+        errMsg = '권한이 없습니다. (관리자 계정 ' + (auth.currentUser?.email || '') + '으로 로그인했는지 확인해주세요. 구글 토큰 전파 시간이나 DB 사용자 정보 불일치일 수 있습니다.)';
+      }
+      setErrorMsg(errMsg);
     } finally {
       setLoading(false);
     }
@@ -226,12 +253,12 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs text-ink-800/60 uppercase">M.A.K.E.R 단계 선택 (제목에 추가됨)</label>
+                    <label className="text-xs text-ink-800/60 uppercase block font-bold">M.A.K.E.R 단계 선택</label>
                     <div className="relative">
                       <select 
                         value={makerStage}
                         onChange={e => setMakerStage(e.target.value)}
-                        className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors appearance-none text-ink-900 cursor-pointer"
+                        className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors appearance-none text-ink-900 cursor-pointer text-xs"
                       >
                         <option value="">선택 안 함 (없음)</option>
                         <option value="M:만남">M:만남</option>
@@ -245,14 +272,48 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs text-ink-800/60 uppercase">자료 제목</label>
+                    <label className="text-xs text-ink-800/60 uppercase block font-bold">문화유산 분류 선택</label>
+                    <div className="relative">
+                      <select 
+                        value={heritageSelect}
+                        onChange={e => setHeritageSelect(e.target.value)}
+                        className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors appearance-none text-ink-900 cursor-pointer text-xs"
+                      >
+                        <option value="호조벌">호조벌</option>
+                        <option value="관곡지">관곡지</option>
+                        <option value="오이도 패총">오이도 패총</option>
+                        <option value="군자봉성황제">군자봉성황제</option>
+                        <option value="능곡선사유적지">능곡선사유적지</option>
+                        <option value="갯골·염전">갯골·염전</option>
+                        <option value="생금집">생금집</option>
+                        <option value="기타">기타(입력)</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-800/40 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {heritageSelect === '기타' && (
+                    <div className="space-y-2">
+                      <label className="text-xs text-ink-800/60 uppercase block font-bold">기타 문화유산 직접 입력</label>
+                      <input 
+                        required
+                        type="text"
+                        value={customHeritage}
+                        onChange={e => setCustomHeritage(e.target.value)}
+                        className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors text-ink-900 text-xs"
+                        placeholder="예: 생금쌍우물"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-ink-800/60 uppercase block font-bold">자료 상세 제목 (선택사항)</label>
                     <input 
-                      required
                       type="text"
                       value={form.title}
                       onChange={e => setForm({ ...form, title: e.target.value })}
-                      className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors text-ink-900"
-                      placeholder="자료 명칭을 입력하세요"
+                      className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors text-ink-900 text-xs"
+                      placeholder="예: AI 활용 학습지, 활동 일지 등"
                     />
                   </div>
 
@@ -301,6 +362,12 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
                         placeholder="https://..."
                       />
                       <p className="text-[10px] text-ink-800/40 italic">* 파일을 직접 올리지 않을 경우 외부 링크를 입력해 주세요.</p>
+                    </div>
+                  )}
+
+                  {errorMsg && (
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 font-sans text-xs rounded-sm mb-2 leading-relaxed">
+                      ⚠️ {errorMsg}
                     </div>
                   )}
 
