@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { ChevronRight, ArrowDown, MapPin, Sparkles, BookOpen, PenTool, Share2, Code, Rocket } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminUpload from '../components/AdminUpload';
+import saenggeumHeroImg from '../assets/images/saenggeumjib_heritage_hero_1780207752002.png';
 
 const categories = [
   { name: '호조벌', img: 'https://picsum.photos/seed/hozo/600/400' },
@@ -21,7 +22,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-ink-900 overflow-hidden">
           <div className="absolute inset-0 opacity-40 mix-blend-overlay hanji-texture" />
           <img 
-            src="/src/assets/images/saenggeumjib_heritage_hero_1780207752002.png" 
+            src={saenggeumHeroImg} 
             alt="Siheung Heritage Hero Illustration"
             className="w-full h-full object-cover opacity-95 scale-100 transition-all duration-1000"
             referrerPolicy="no-referrer"
