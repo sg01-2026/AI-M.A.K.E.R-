@@ -13,6 +13,7 @@ interface Resource {
   fileUrl: string;
   description: string;
   createdAt?: any;
+  displayDate?: string;
 }
 
 const clubLevels = {
@@ -169,7 +170,13 @@ export default function ClubsPage() {
                          </a>
                        </td>
                        <td className="px-6 py-5 text-center font-serif text-sm text-ink-800/20">
-                         {res.createdAt ? new Date(res.createdAt.seconds * 1000).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1) : '2024.05.18'}
+                         {res.displayDate 
+                           ? res.displayDate.replace(/-/g, '.')
+                           : (res.createdAt 
+                               ? new Date(res.createdAt.seconds * 1000).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1)
+                               : '2024.05.18'
+                             )
+                         }
                        </td>
                      </tr>
                    ))

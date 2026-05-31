@@ -20,6 +20,8 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [makerStage, setMakerStage] = useState('');
+  const [displayDate, setDisplayDate] = useState(new Date().toISOString().split('T')[0]);
   const [form, setForm] = useState({
     title: '',
     type: 'image' as 'image' | 'pdf',
@@ -75,18 +77,24 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
          throw new Error("파일을 업로드하거나 URL을 입력해주세요.");
       }
 
+      const finalTitle = makerStage ? `[${makerStage}] ${form.title.trim()}` : form.title.trim();
+
       const resourceData = {
         ...form,
+        title: finalTitle,
         fileUrl: finalFileUrl,
         authorId: auth.currentUser.uid,
         authorEmail: auth.currentUser.email,
         createdAt: serverTimestamp(),
+        displayDate: displayDate
       };
 
       await addDoc(collection(db, 'resources'), resourceData);
       
       setForm({ ...form, title: '', type: 'image', fileUrl: '', description: '' });
       setSelectedFile(null);
+      setMakerStage('');
+      setDisplayDate(new Date().toISOString().split('T')[0]);
       setUploadProgress(0);
       setIsOpen(false);
       if (onUploadSuccess) onUploadSuccess();
@@ -218,6 +226,25 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
                   </div>
 
                   <div className="space-y-2">
+                    <label className="text-xs text-ink-800/60 uppercase">M.A.K.E.R 단계 선택 (제목에 추가됨)</label>
+                    <div className="relative">
+                      <select 
+                        value={makerStage}
+                        onChange={e => setMakerStage(e.target.value)}
+                        className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors appearance-none text-ink-900 cursor-pointer"
+                      >
+                        <option value="">선택 안 함 (없음)</option>
+                        <option value="M:만남">M:만남</option>
+                        <option value="A:질문">A:질문</option>
+                        <option value="K:이해">K:이해</option>
+                        <option value="E:표현">E:표현</option>
+                        <option value="R:연결">R:연결</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-800/40 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
                     <label className="text-xs text-ink-800/60 uppercase">자료 제목</label>
                     <input 
                       required
@@ -226,6 +253,17 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
                       onChange={e => setForm({ ...form, title: e.target.value })}
                       className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors text-ink-900"
                       placeholder="자료 명칭을 입력하세요"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-ink-800/60 uppercase">등록일자 직접 선택</label>
+                    <input 
+                      required
+                      type="date"
+                      value={displayDate}
+                      onChange={e => setDisplayDate(e.target.value)}
+                      className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors text-ink-900"
                     />
                   </div>
 

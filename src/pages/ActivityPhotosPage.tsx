@@ -41,6 +41,7 @@ interface ActivityPhoto {
   author: string; // e.g. "유아교육과"
   viewCount: number;
   createdAt: any;
+  displayDate?: string;
 }
 
 const DEFAULT_PHOTOS: ActivityPhoto[] = [
@@ -95,7 +96,11 @@ export default function ActivityPhotosPage() {
   const [newEventDate, setNewEventDate] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newCategory, setNewCategory] = useState<'기본1 (기초)' | '기본2(중급)' | '기본3(고급)'>('기본1 (기초)');
-  const [newAuthor, setNewAuthor] = useState('');
+  const [newAuthor, setNewAuthor] = useState('유아교육과');
+  const [authorSelectType, setAuthorSelectType] = useState('유아교육과');
+  const [newCustomAuthor, setNewCustomAuthor] = useState('');
+  const [newMakerStage, setNewMakerStage] = useState('');
+  const [newDisplayDate, setNewDisplayDate] = useState(new Date().toISOString().split('T')[0]);
   const [newImageUrl, setNewImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(false);
@@ -189,7 +194,8 @@ export default function ActivityPhotosPage() {
       setUploadProgress(false);
       return;
     }
-    if (!newAuthor.trim()) {
+    const computedAuthor = authorSelectType === 'custom' ? newCustomAuthor.trim() : authorSelectType;
+    if (!computedAuthor) {
       setFormError('소속/작성자를 입력해주세요.');
       setUploadProgress(false);
       return;
@@ -213,14 +219,15 @@ export default function ActivityPhotosPage() {
 
       // 2. Save document to Firestore
       const docData = {
-        title: newTitle.trim(),
+        title: newMakerStage ? `[${newMakerStage}] ${newTitle.trim()}` : newTitle.trim(),
         eventDate: newEventDate.trim(),
         description: newDescription.trim(),
         category: newCategory,
-        author: newAuthor.trim(),
+        author: computedAuthor,
         imageUrl: finalImageUrl,
         viewCount: 0,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        displayDate: newDisplayDate
       };
 
       await addDoc(collection(db, 'activity_photos'), docData);
@@ -229,7 +236,11 @@ export default function ActivityPhotosPage() {
       setNewTitle('');
       setNewEventDate('');
       setNewDescription('');
-      setNewAuthor('');
+      setNewAuthor('유아교육과');
+      setAuthorSelectType('유아교육과');
+      setNewCustomAuthor('');
+      setNewMakerStage('');
+      setNewDisplayDate(new Date().toISOString().split('T')[0]);
       setNewImageUrl('');
       setImageFile(null);
       setShowUploadModal(false);
@@ -389,9 +400,12 @@ export default function ActivityPhotosPage() {
                     <div className="flex items-center space-x-1">
                       <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
                       <span>
-                        {photo.createdAt 
-                          ? new Date(photo.createdAt.seconds * 1000).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1)
-                          : `2026.05.31`
+                        {photo.displayDate 
+                          ? photo.displayDate.replace(/-/g, '.')
+                          : (photo.createdAt 
+                              ? new Date(photo.createdAt.seconds * 1000).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1)
+                              : `2026.05.31`
+                            )
                         }
                       </span>
                     </div>
@@ -482,9 +496,12 @@ export default function ActivityPhotosPage() {
                     <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
                     <span className="font-bold text-zinc-800">등록일자:</span>
                     <span>
-                      {activePhoto.createdAt 
-                        ? new Date(activePhoto.createdAt.seconds * 1000).toLocaleDateString('ko-KR')
-                        : '2026.05.31'
+                      {activePhoto.displayDate 
+                        ? activePhoto.displayDate.replace(/-/g, '.')
+                        : (activePhoto.createdAt 
+                            ? new Date(activePhoto.createdAt.seconds * 1000).toLocaleDateString('ko-KR')
+                            : '2026.05.31'
+                          )
                       }
                     </span>
                   </div>
@@ -559,6 +576,23 @@ export default function ActivityPhotosPage() {
                 )}
 
                 <form onSubmit={handleUpload} className="space-y-4 font-serif text-xs">
+                  {/* M.A.K.E.R Stage Selector */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider block mb-1">M.A.K.E.R 단계 선택 (제목에 기입됨)</label>
+                    <select
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239] cursor-pointer"
+                      value={newMakerStage}
+                      onChange={(e) => setNewMakerStage(e.target.value)}
+                    >
+                      <option value="">선택 안 함 (직접 입력만)</option>
+                      <option value="M:만남">M:만남</option>
+                      <option value="A:질문">A:질문</option>
+                      <option value="K:이해">K:이해</option>
+                      <option value="E:표현">E:표현</option>
+                      <option value="R:연결">R:연결</option>
+                    </select>
+                  </div>
+
                   {/* Title */}
                   <div className="space-y-1">
                     <label className="text-[10px] text-zinc-500 font-bold tracking-wider">활동 제목 (예: 2026 스승의 날)</label>
@@ -585,6 +619,18 @@ export default function ActivityPhotosPage() {
                     />
                   </div>
 
+                  {/* Admin Display Date selection */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">등록일자 직접 선택 (카드에 표시될 날짜)</label>
+                    <input
+                      type="date"
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
+                      value={newDisplayDate}
+                      onChange={(e) => setNewDisplayDate(e.target.value)}
+                      required
+                    />
+                  </div>
+
                   {/* Club Category */}
                   <div className="space-y-1">
                     <label className="text-[10px] text-zinc-500 font-bold tracking-wider">구분 (게시판 카테고리)</label>
@@ -599,17 +645,45 @@ export default function ActivityPhotosPage() {
                     </select>
                   </div>
 
-                  {/* Author / Crew Name */}
+                  {/* Author / Crew Name selectable dropdown */}
                   <div className="space-y-1">
-                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">소속 학과 / 탐구동아리명 (예: 유아교육과)</label>
-                    <input
-                      type="text"
-                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
-                      placeholder="유아교육과"
-                      value={newAuthor}
-                      onChange={(e) => setNewAuthor(e.target.value)}
-                      required
-                    />
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider block mb-1">소속 학과 / 탐구동아리명 선택</label>
+                    <select
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239] cursor-pointer mb-2"
+                      value={authorSelectType}
+                      onChange={(e) => {
+                        setAuthorSelectType(e.target.value);
+                        if (e.target.value !== 'custom') {
+                          setNewAuthor(e.target.value);
+                        }
+                      }}
+                    >
+                      <option value="유아교육과">유아교육과</option>
+                      <option value="초등교육과">초등교육과</option>
+                      <option value="역사탐구동아리">역사탐구동아리</option>
+                      <option value="AI크리에이터동아리">AI크리에이터동아리</option>
+                      <option value="지역연계탐구팀">지역연계탐구팀</option>
+                      <option value="M:만남">M:만남</option>
+                      <option value="A:질문">A:질문</option>
+                      <option value="K:이해">K:이해</option>
+                      <option value="E:표현">E:표현</option>
+                      <option value="R:연결">R:연결</option>
+                      <option value="custom">직접 입력...</option>
+                    </select>
+
+                    {authorSelectType === 'custom' && (
+                      <input
+                        type="text"
+                        className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239] mt-1"
+                        placeholder="소속 학과 혹은 탐구동아리명을 직접 입력하세요"
+                        value={newCustomAuthor}
+                        onChange={(e) => {
+                          setNewCustomAuthor(e.target.value);
+                          setNewAuthor(e.target.value);
+                        }}
+                        required
+                      />
+                    )}
                   </div>
 
                   {/* Image Options */}
