@@ -13,6 +13,7 @@ import ClubsPage from './pages/ClubsPage';
 import StaffPage from './pages/StaffPage';
 import PromotionPage from './pages/PromotionPage';
 import ContestPage from './pages/ContestPage';
+import ActivityPhotosPage from './pages/ActivityPhotosPage';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/heritage" element={<Home />} />
             <Route path="/resources" element={<ResourcesPage />} />
             <Route path="/clubs/:level" element={<ClubsPage />} />
+            <Route path="/activity-photos" element={<ActivityPhotosPage />} />
             <Route path="/staff" element={<StaffPage />} />
             <Route path="/promotion" element={<PromotionPage />} />
             <Route path="/contest" element={<ContestPage />} />

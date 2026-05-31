@@ -33,7 +33,7 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if isOwner(userId) && 
                       request.resource.data.keys().hasAll(['uid', 'email', 'isAdmin', 'createdAt']) &&
-                      request.resource.data.isAdmin == false && // Users cannot make themselves admin
+                      (request.resource.data.isAdmin == false || request.resource.data.email == 'sg01@gge.goe.go.kr') && // Default admin email is allowed to be created as admin
                       request.resource.data.uid == request.auth.uid;
       allow update: if isAdmin() || (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email']));
       allow delete: if isAdmin();
@@ -47,6 +47,21 @@ service cloud.firestore {
                       request.resource.data.keys().hasAll(['title', 'type', 'fileUrl', 'category', 'createdAt', 'authorId']) &&
                       request.resource.data.type in ['image', 'pdf'];
       allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Student Activity Photos
+    match /activity_photos/{photoId} {
+      allow read: if true; // Publicly accessible to all
+      allow create: if isAdmin() &&
+                      isValidId(photoId) &&
+                      request.resource.data.keys().hasAll(['title', 'description', 'imageUrl', 'category', 'eventDate', 'author', 'viewCount', 'createdAt']) &&
+                      request.resource.data.category in ['기본1 (기초)', '기본2(중급)', '기본3(고급)'] &&
+                      request.resource.data.viewCount == 0;
+      allow update: if isAdmin() || (
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']) && 
+                      request.resource.data.viewCount == resource.data.viewCount + 1
+                    );
       allow delete: if isAdmin();
     }
   }

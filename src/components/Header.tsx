@@ -10,7 +10,7 @@ const menuItems = [
   {
     title: '학생동아리',
     icon: <Users className="w-4 h-4" />,
-    sub: ['기본1 (기초)', '기본2(중급)', '기본3(고급)']
+    sub: ['기본1 (기초)', '기본2(중급)', '기본3(고급)', '학생 활동사진']
   },
   {
     title: '지역문화유산 프로젝트',
@@ -90,7 +90,10 @@ export default function Header() {
   }, []);
 
   const getHref = (itemTitle: string, subItem: string) => {
-    if (itemTitle === '학생동아리') return `/clubs/${subItem}`;
+    if (itemTitle === '학생동아리') {
+      if (subItem === '학생 활동사진') return '/activity-photos';
+      return `/clubs/${subItem}`;
+    }
     if (itemTitle === '지도안 · 학습지') {
       const sectionMap: Record<string, string> = {
         '수업 지도안': 'lesson',

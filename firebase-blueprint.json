@@ -28,6 +28,22 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "type", "fileUrl", "category"]
+    },
+    "ActivityPhoto": {
+      "title": "Student Activity Photo",
+      "description": "Activity photos shared by traditional clubs with detailed metadata and view counts",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "category": { "type": "string", "enum": ["기본1 (기초)", "기본2(중급)", "기본3(고급)"] },
+        "eventDate": { "type": "string" },
+        "author": { "type": "string" },
+        "viewCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "imageUrl", "category", "eventDate", "author", "viewCount"]
     }
   },
   "firestore": {
@@ -38,6 +54,10 @@
     "/resources/{resourceId}": {
       "schema": "Resource",
       "description": "Global resources shared across menus"
+    },
+    "/activity_photos/{photoId}": {
+      "schema": "ActivityPhoto",
+      "description": "Student activity photos separated by clubs with view count tracing"
     }
   }
 }

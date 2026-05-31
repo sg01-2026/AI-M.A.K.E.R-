@@ -302,7 +302,7 @@ export default function Home() {
               </div>
 
               <Link 
-                to="/resources"
+                to="/activity-photos"
                 className="w-full text-center py-2.5 bg-[#553F2E] hover:bg-[#8C6239] text-[#FAF8F5] font-serif text-[10px] uppercase tracking-widest transition-colors rounded-xs shadow-sm mt-4 inline-block"
               >
                 전체 디지털 갤러리 감상
