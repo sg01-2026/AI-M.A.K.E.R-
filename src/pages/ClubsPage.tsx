@@ -1,8 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { ChevronRight, PenTool, Sparkles, Image as ImageIcon, FileText, Code, Rocket, ExternalLink } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ChevronRight, PenTool, Sparkles, Image as ImageIcon, FileText, Code, Rocket, ExternalLink, Calendar, User, Eye, CheckCircle2, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import AdminUpload from '../components/AdminUpload';
 
@@ -17,6 +17,54 @@ interface Resource {
   makerStage?: string;
   heritage?: string;
 }
+
+interface ActivityPhoto {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  category: string;
+  eventDate: string;
+  author: string;
+  viewCount: number;
+  createdAt?: any;
+  displayDate?: string;
+  makerStage?: string;
+  heritage?: string;
+}
+
+const DEFAULT_ACTIVITY_PHOTOS: ActivityPhoto[] = [
+  {
+    id: 'seed-1',
+    title: '2026 스승의 날',
+    eventDate: '05.11',
+    description: '스승의 날을 맞이하여 교수님들께 감사한 마음을 전하는 시간을 가졌습니다. 유아교육과 학우들은 스승의 사랑에 작게나마 보답하기 위하여 따스한 카네이션과 마음이 깃든 메세지를 준비했습니다.',
+    category: '기본1 (기초)',
+    author: '유아교육과',
+    imageUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&q=80&w=800',
+    viewCount: 106,
+  },
+  {
+    id: 'seed-2',
+    title: '2026 유아교육과 엠티',
+    eventDate: '04.10~04.11',
+    description: '4월 10일부터 11일까지 1박 2일 동안 대자연과 고풍스러운 문화 가옥이 어우러진 공간에서 유아교육과 연합 엠티를 진행하였습니다. 유아교육과 교수님과 선후배 학우들이 만나 따뜻한 소통의 물결을 이루었습니다.',
+    category: '기본2(중급)',
+    author: '유아교육과',
+    imageUrl: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&q=80&w=800',
+    viewCount: 225,
+  },
+  {
+    id: 'seed-3',
+    title: '2026 학생회 간담회',
+    eventDate: '03.20',
+    description: '2026년, 제45대 유아교육과 학생회 \'청아\'가 새롭게 출범하였습니다. 이에 2026학년도 1차 간담회를 통해 다채로운 학생 주도 탐구 활동과 학술 아카이브 활성화 방안에 대해 논의를 다졌습니다.',
+    category: '기본3(고급)',
+    author: '유아교육과',
+    imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800',
+    viewCount: 256,
+  }
+];
 
 const clubLevels = {
   '기본1 (기초)': {
@@ -48,6 +96,9 @@ export default function ClubsPage() {
   const [selectedMakerStage, setSelectedMakerStage] = useState<string>('전체');
   const [selectedHeritage, setSelectedHeritage] = useState<string>('전체');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activityPhotos, setActivityPhotos] = useState<ActivityPhoto[]>([]);
+  const [activePhoto, setActivePhoto] = useState<ActivityPhoto | null>(null);
+  
   const currentLevel = clubLevels[level as keyof typeof clubLevels] || clubLevels['기본1 (기초)'];
 
   useEffect(() => {
@@ -67,6 +118,42 @@ export default function ClubsPage() {
 
     return () => unsubscribe();
   }, [level]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'activity_photos'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as any[];
+      setActivityPhotos(fetched);
+    }, (error) => {
+      console.error("Error loading activity photos in ClubsPage:", error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleViewDetails = async (photo: ActivityPhoto) => {
+    setActivePhoto(photo);
+    
+    if (!photo.id.startsWith('seed-')) {
+      try {
+        const photoRef = doc(db, 'activity_photos', photo.id);
+        await updateDoc(photoRef, {
+          viewCount: (photo.viewCount || 0) + 1
+        });
+      } catch (e) {
+        console.warn("Could not increment view count", e);
+      }
+    } else {
+      setActivityPhotos(prev => prev.map(p => p.id === photo.id ? { ...p, viewCount: (p.viewCount || 0) + 1 } : p));
+    }
+  };
 
   const filteredResources = resources.filter(res => {
     // 1. Maker Stage Filter
@@ -93,6 +180,14 @@ export default function ClubsPage() {
 
     return stageMatch && heritageMatch && searchMatch;
   });
+
+  const displayActivityPhotos = (() => {
+    const matchingFromDb = activityPhotos.filter(photo => photo.category === level);
+    if (matchingFromDb.length > 0) {
+      return matchingFromDb;
+    }
+    return DEFAULT_ACTIVITY_PHOTOS.filter(photo => photo.category === level);
+  })();
 
   return (
     <div className="min-h-screen bg-hanji-50 pb-20 font-serif">
@@ -142,6 +237,83 @@ export default function ClubsPage() {
                     {i + 1}
                   </div>
                   <span className="text-ink-800 font-serif leading-relaxed text-sm md:text-base px-2">{topic}</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Student Activity Photos Section */}
+        <div className="space-y-12">
+          <div className="text-center space-y-4">
+            <span className="text-gold-600 font-serif uppercase tracking-[0.3em] text-[10px] font-bold opacity-60">Visual Archive</span>
+            <h2 className="text-3xl md:text-4xl font-serif text-ink-900">동아리 활동사진</h2>
+            <div className="h-0.5 w-16 bg-gold-500 mx-auto opacity-20" />
+            <p className="text-ink-800/50 font-serif text-sm max-w-xl mx-auto">
+              배움과 만남의 순간 속에서 피어난 동아리 학생들의 아름답고 생생한 활동 기록입니다.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {displayActivityPhotos.map((photo, index) => (
+              <motion.div
+                key={photo.id || index}
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: index * 0.05 }}
+                viewport={{ once: true }}
+                className="group cursor-pointer bg-white border border-gold-500/10 hover:border-gold-500/30 transition-all shadow-sm hover:shadow-md flex flex-col justify-between"
+                onClick={() => handleViewDetails(photo)}
+              >
+                {/* Image Container with Aspect Ratio */}
+                <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
+                  <img
+                    src={photo.imageUrl}
+                    alt={photo.title}
+                    className="w-full h-full object-cover group-hover:scale-105 duration-700 transition-transform"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-xs text-[9px] text-gold-400 font-sans tracking-wider uppercase font-bold">
+                    {photo.category}
+                  </div>
+                </div>
+
+                {/* Card Body Details */}
+                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <h3 className="text-md font-bold text-ink-900 group-hover:text-gold-600 transition-colors leading-snug break-keep text-left">
+                      {photo.title} ({photo.eventDate})
+                    </h3>
+                    <p className="text-xs text-ink-800/60 leading-relaxed line-clamp-2 break-keep font-light h-8 font-serif text-left">
+                      {photo.description}
+                    </p>
+                  </div>
+
+                  {/* Icon Block Rows */}
+                  <div className="flex items-center space-x-4 border-t border-gold-500/10 pt-3.5 text-[11px] text-ink-800/40 font-serif">
+                    <div className="flex items-center space-x-1">
+                      <User className="w-3.5 h-3.5 text-gold-600" />
+                      <span className="font-semibold text-ink-800/70">{photo.author}</span>
+                    </div>
+
+                    <div className="flex items-center space-x-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600/70" />
+                      <span>
+                        {photo.displayDate 
+                          ? photo.displayDate.replace(/-/g, '.')
+                          : (photo.createdAt 
+                              ? new Date(photo.createdAt.seconds * 1000).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1)
+                              : `2026.05.31`
+                            )
+                        }
+                      </span>
+                    </div>
+
+                    <div className="flex items-center space-x-1">
+                      <Eye className="w-3.5 h-3.5 text-gold-500" />
+                      <span>{photo.viewCount || 0}</span>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -309,6 +481,86 @@ export default function ClubsPage() {
       </section>
 
       <AdminUpload initialCategory={level} />
+
+      {/* Pop-up Card Detailed Modal */}
+      <AnimatePresence>
+        {activePhoto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-[#1A1A1A]/70 backdrop-blur-sm"
+              onClick={() => setActivePhoto(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-2xl bg-[#FCFAF5] border border-[#EADFCB] rounded-sm p-6 md:p-8 shadow-2xl overflow-y-auto max-h-[90vh]"
+            >
+              <div className="hanji-texture absolute inset-0 opacity-10 pointer-events-none" />
+
+              <div className="relative z-10 space-y-6">
+                {/* Header info */}
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1 text-left">
+                    <span className="text-[10px] text-[#8C6239] font-bold font-serif uppercase tracking-widest bg-[#8C6239]/5 px-2.5 py-0.5 rounded-sm border border-[#8C6239]/20 font-sans">
+                      {activePhoto.category}
+                    </span>
+                    <h3 className="text-2xl font-bold font-serif text-[#1A1A1A] mt-2 leading-snug break-keep">
+                      {activePhoto.title} ({activePhoto.eventDate})
+                    </h3>
+                  </div>
+                  <button 
+                    onClick={() => setActivePhoto(null)}
+                    className="p-1 px-1.5 border border-zinc-200 text-zinc-400 hover:text-zinc-600 rounded-sm hover:bg-stone-50 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Detailed Image */}
+                <div className="aspect-[16/10] bg-black rounded-xs overflow-hidden shadow-inner relative border border-[#EADFCB]/30">
+                  <img 
+                    src={activePhoto.imageUrl} 
+                    alt={activePhoto.title}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+
+                {/* Sub-meta details */}
+                <div className="flex flex-wrap items-center gap-6 py-3 px-4 bg-[#FAF8F5] border border-[#EADFCB]/40 rounded-sm text-xs text-zinc-600 font-serif">
+                  <div className="flex items-center space-x-1.5">
+                    <User className="w-4 h-4 text-[#3C82F6]" />
+                    <span className="font-bold text-zinc-800">활동 동아리/작성자:</span>
+                    <span>{activePhoto.author}</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <Calendar className="w-4 h-4 text-[#10B981]" />
+                    <span className="font-bold text-zinc-800">행사자료일:</span>
+                    <span>{activePhoto.eventDate}</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <Eye className="w-4 h-4 text-[#3C82F6]" />
+                    <span className="font-bold text-zinc-800 font-serif">조회 수:</span>
+                    <span>{(activePhoto.viewCount || 0) + 1}회</span>
+                  </div>
+                </div>
+
+                {/* Description Text */}
+                <div className="space-y-2 text-left">
+                  <h4 className="text-xs font-bold text-[#8C6239] uppercase tracking-wider font-sans">활동 상세 소개</h4>
+                  <p className="text-sm text-zinc-700 leading-relaxed font-serif whitespace-pre-wrap py-2 border-t border-zinc-100">
+                    {activePhoto.description}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
