@@ -14,7 +14,7 @@ interface AdminUploadProps {
 }
 
 export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminUploadProps) {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -64,7 +64,7 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
     setErrorMsg('');
 
     try {
-      if (!auth.currentUser) throw new Error("로그인이 필요합니다.");
+      if (!user) throw new Error("로그인이 필요합니다.");
 
       let finalFileUrl = form.fileUrl;
 
@@ -92,8 +92,8 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
         ...form,
         title: finalTitle,
         fileUrl: finalFileUrl,
-        authorId: auth.currentUser.uid,
-        authorEmail: auth.currentUser.email,
+        authorId: user.uid,
+        authorEmail: user.email,
         createdAt: serverTimestamp(),
         displayDate: displayDate,
         makerStage: makerStage || null,
@@ -124,7 +124,7 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
       }
 
       if (errMsg.includes('permission-denied') || errMsg.includes('Permission denied') || errMsg.includes('Missing or insufficient permissions')) {
-        errMsg = '권한이 없습니다. (관리자 계정 ' + (auth.currentUser?.email || '') + '으로 로그인했는지 확인해주세요. 구글 토큰 전파 시간이나 DB 사용자 정보 불일치일 수 있습니다.)';
+        errMsg = '권한이 없습니다. (관리자 계정 ' + (user?.email || '') + '으로 로그인했는지 확인해주세요. 구글 토큰 전파 시간이나 DB 사용자 정보 불일치일 수 있습니다.)';
       }
       setErrorMsg(errMsg);
     } finally {
