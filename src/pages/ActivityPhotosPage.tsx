@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -13,10 +14,25 @@ import {
   Image as ImageIcon,
   FileText,
   AlertCircle,
-  ChevronDown
+  ChevronDown,
+  Clock,
+  Home,
+  Edit
 } from 'lucide-react';
 import { db, storage } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
+
+const cleanActivityTitle = (title: string) => {
+  // 1. Remove [M:만남] prefix
+  let clean = title.replace(/^\[[^\]]+\]\s*/, '');
+  // 2. If it contains "Heritage - Title", extract the Title part
+  if (clean.includes(' - ')) {
+    const parts = clean.split(' - ');
+    // Return the second part onwards
+    clean = parts.slice(1).join(' - ');
+  }
+  return clean;
+};
 import { 
   collection, 
   query, 
@@ -42,6 +58,8 @@ interface ActivityPhoto {
   viewCount: number;
   createdAt: any;
   displayDate?: string;
+  makerStage?: string;
+  heritage?: string;
 }
 
 const DEFAULT_PHOTOS: ActivityPhoto[] = [
@@ -110,6 +128,34 @@ export default function ActivityPhotosPage() {
   const [uploadProgress, setUploadProgress] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // State for editing a post
+  const [selectedPost, setSelectedPost] = useState<ActivityPhoto | null>(null);
+
+  // Form states for editing
+  const [editTitle, setEditTitle] = useState('');
+  const [editEventDate, setEditEventDate] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState<'기본1 (기초)' | '기본2(중급)' | '기본3(고급)'>('기본1 (기초)');
+  const [editAuthor, setEditAuthor] = useState('');
+  const [editDisplayDate, setEditDisplayDate] = useState('');
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [editMakerStage, setEditMakerStage] = useState('');
+  const [editHeritage, setEditHeritage] = useState('');
+
+  useEffect(() => {
+    if (selectedPost) {
+      setEditTitle(selectedPost.title);
+      setEditEventDate(selectedPost.eventDate);
+      setEditDescription(selectedPost.description);
+      setEditCategory(selectedPost.category);
+      setEditAuthor(selectedPost.author);
+      setEditImageUrl(selectedPost.imageUrl);
+      setEditDisplayDate(selectedPost.displayDate || new Date().toISOString().split('T')[0]);
+      setEditMakerStage(selectedPost.makerStage || '');
+      setEditHeritage(selectedPost.heritage || '');
+    }
+  }, [selectedPost]);
+
   // Fetch photos from Firestore
   useEffect(() => {
     const q = query(collection(db, 'activity_photos'), orderBy('createdAt', 'desc'));
@@ -177,6 +223,21 @@ export default function ActivityPhotosPage() {
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+        } else {
+          reject(new Error('파일을 읽는 데 실패했습니다.'));
+        }
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Upload Logic
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,9 +271,25 @@ export default function ActivityPhotosPage() {
     try {
       // 1. File Upload to Storage if chosen
       if (imageFile) {
-        const fileRef = ref(storage, `activity_photos/${Date.now()}_${imageFile.name}`);
-        const snapshot = await uploadBytes(fileRef, imageFile);
-        finalImageUrl = await getDownloadURL(snapshot.ref);
+        try {
+          const uploadPromise = async () => {
+            const fileRef = ref(storage, `activity_photos/${Date.now()}_${imageFile.name}`);
+            const snapshot = await uploadBytes(fileRef, imageFile);
+            return await getDownloadURL(snapshot.ref);
+          };
+
+          const timeoutPromise = new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error("Storage timeout")), 3000)
+          );
+
+          finalImageUrl = await Promise.race([uploadPromise(), timeoutPromise]);
+        } catch (storageError) {
+          console.warn("Storage upload failed or timed out, falling back to Base64:", storageError);
+          if (imageFile.size > 800 * 1024) {
+            throw new Error("파일 크기가 너무 큽니다 (최대 800KB). 이미지 크기를 줄이거나 더 저용량 주소로 작성해 주세요.");
+          }
+          finalImageUrl = await fileToBase64(imageFile);
+        }
       }
 
       if (!finalImageUrl) {
@@ -286,8 +363,57 @@ export default function ActivityPhotosPage() {
     }
   };
 
-  // Combine Firestore results with preloaded/seeded items so if Firestore is blank, the board is perfectly populated!
-  const displayPhotos = photos.length > 0 ? photos : DEFAULT_PHOTOS;
+  // Save Edit Logic
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPost) return;
+
+    try {
+      setUploadProgress(true);
+      
+      const updatedData = {
+        title: editTitle,
+        eventDate: editEventDate,
+        description: editDescription,
+        category: editCategory,
+        author: editAuthor,
+        imageUrl: editImageUrl,
+        displayDate: editDisplayDate,
+        makerStage: editMakerStage || null,
+        heritage: editHeritage || null
+      };
+
+      if (!selectedPost.id.startsWith('seed-')) {
+        const docRef = doc(db, 'activity_photos', selectedPost.id);
+        await updateDoc(docRef, updatedData);
+      } else {
+        // If it's a seed post, update local state
+        setPhotos(prev => prev.map(p => p.id === selectedPost.id ? { ...p, ...updatedData } : p));
+      }
+
+      // Update active photo detail view if it's currently open
+      if (activePhoto && activePhoto.id === selectedPost.id) {
+        setActivePhoto({
+          ...activePhoto,
+          ...updatedData
+        } as any);
+      }
+
+      alert('성공적으로 수정되었습니다.');
+      setSelectedPost(null);
+    } catch (err: any) {
+      console.error(err);
+      alert(`수정 중 오류가 발생했습니다: ${err.message || err}`);
+    } finally {
+      setUploadProgress(false);
+    }
+  };
+
+  // Combine Firestore uploads with DEFAULT_PHOTOS to keep the 3 pre-seeded items always present
+  const displayPhotos = [
+    ...photos,
+    ...DEFAULT_PHOTOS.filter(dp => !photos.some(p => p.title.includes(dp.title) || p.description.includes(dp.description.substring(0, 10))))
+  ];
 
   // Filtering
   const filteredPhotos = displayPhotos.filter(photo => {
@@ -322,80 +448,116 @@ export default function ActivityPhotosPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] pb-24 font-serif pt-28">
-      {/* Decorative top header line */}
-      <div className="h-1 bg-gradient-to-r from-[#8C6239] via-[#C5A880] to-[#1A1A1A] w-full fixed top-20 z-40" />
+    <div className="min-h-screen bg-white pb-24 font-sans pt-20">
+      {/* Dynamic top header bar shadow alignment */}
+      <div className="h-[1px] bg-zinc-200 w-full fixed top-20 z-40" />
+
+      {/* Breadcrumb section matching screenshot exactly */}
+      <div className="bg-[#FAF8F5] border-b border-zinc-200 py-3 mb-6">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center space-x-2 text-xs text-zinc-500 font-sans">
+          <Link to="/" className="flex items-center text-zinc-400 hover:text-zinc-700 transition-colors">
+            <Home className="w-3.5 h-3.5" />
+          </Link>
+          <span className="text-zinc-300 font-light">/</span>
+          <div className="flex items-center space-x-1 hover:text-zinc-700 cursor-pointer">
+            <span>학생활동</span>
+            <ChevronDown className="w-3 h-3 text-zinc-400 opacity-60" />
+          </div>
+          <span className="text-zinc-300 font-light">/</span>
+          <div className="flex items-center space-x-1 text-zinc-800 font-semibold cursor-pointer">
+            <span>학생 활동사진</span>
+            <ChevronDown className="w-3 h-3 text-zinc-400 opacity-60" />
+          </div>
+        </div>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-8">
-        {/* Header Block */}
-        <div className="text-center py-10">
-          <div className="inline-flex items-center space-x-1.5 text-[10px] text-[#8C6239] font-serif uppercase tracking-[0.25em] font-bold mb-2">
-            <span className="w-1.5 h-1.5 bg-[#8C6239] rotate-45" />
-            <span>Siheung History M.A.K.E.R Board</span>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold font-serif text-[#1A1A1A] tracking-wide mb-3">학생 활동사진</h1>
-          <div className="h-[2px] w-24 bg-[#8C6239] mx-auto opacity-70" />
+        {/* Header Block centered with simple layout */}
+        <div className="text-center py-12 space-y-3">
+          <div className="w-10 h-[1.5px] bg-zinc-400 mx-auto mb-4" />
+          <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 tracking-tight font-sans">학생 활동사진</h1>
         </div>
 
-        {/* Filter Controls (Dropdown + Search Input aligned on the right) */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-end gap-3 mb-6">
-          {/* Dropdown Styled with Classic Border */}
-          <div className="relative">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="appearance-none bg-white border border-[#EADFCB] text-zinc-800 text-xs py-3 pl-4 pr-10 rounded-sm font-serif outline-none cursor-pointer focus:border-[#8C6239] shadow-xs"
-            >
-              <option value="전체">전체</option>
-              <option value="기본1 (기초)">기본1(기초)</option>
-              <option value="기본2(중급)">기본2(중급)</option>
-              <option value="기본3(고급)">기본3(고급)</option>
-            </select>
-            <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+        {/* Filter Controls (Dropdown + Search Input aligned on the right above a solid divider line) */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 mb-4">
+          <div className="flex items-center space-x-2 justify-end">
+            {/* Dropdown Selector */}
+            <div className="relative">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="appearance-none bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 text-xs py-2.5 pl-4 pr-10 outline-none cursor-pointer font-sans transition-colors min-w-[100px]"
+              >
+                <option value="전체">전체</option>
+                <option value="기본1 (기초)">기본1(기초)</option>
+                <option value="기본2(중급)">기본2(중급)</option>
+                <option value="기본3(고급)">기본3(고급)</option>
+              </select>
+              <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
 
-          {/* Search Box with Search Icon on the Right */}
-          <div className="relative w-full md:w-80">
-            <input
-              type="text"
-              placeholder="검색어를 입력해 주세요"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-[#EADFCB] text-zinc-800 text-xs py-3 pl-4 pr-10 rounded-sm font-serif outline-none focus:border-[#8C6239] shadow-xs placeholder-zinc-400"
-            />
-            <Search className="w-4 h-4 text-zinc-500 absolute right-3 top-1/2 -translate-y-1/2" />
-          </div>
+            {/* Search Box with Search Icon on the Far Right */}
+            <div className="relative w-full sm:w-80">
+              <input
+                type="text"
+                placeholder="검색어를 입력해 주세요"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-800 text-xs py-2.5 pl-4 pr-10 outline-none focus:border-zinc-400 font-sans transition-all placeholder-zinc-400"
+              />
+              <Search className="w-4 h-4 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2" />
+            </div>
 
-          {/* Admin Create Control Trigger Button */}
-          {isAdmin && (
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="px-4 py-3 bg-[#8C6239] hover:bg-[#6D4926] text-[#FAF8F5] font-serif text-xs uppercase tracking-widest flex items-center justify-center space-x-1.5 transition-colors rounded-sm shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>활동 등록</span>
-            </button>
-          )}
+            {/* Admin Add Entry Trigger Button */}
+            {isAdmin && (
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="px-4 py-2.5 bg-[#8C6239] hover:bg-[#6D4926] text-white font-sans text-xs flex items-center justify-center space-x-1.5 transition-colors shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>활동 등록</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Interactive Filters Bar */}
-        <div className="bg-white border border-[#EADFCB] p-6 space-y-5 rounded-sm shadow-xs mb-8">
+        {/* Dense Divider Line stretching across the full screen width, exactly like screenshot */}
+        <div className="h-[2px] bg-zinc-300 w-full mb-10" />
+
+        {/* Optional Admin/Advanced view filter toggler (Keeps matching perfect but enables deep functionality) */}
+        <div className="flex justify-start mb-6">
+          <button 
+            onClick={() => {
+              // Toggle detailed filters if user wishes to
+              const target = document.getElementById('maker-advanced-filters');
+              if (target) {
+                target.classList.toggle('hidden');
+              }
+            }}
+            className="text-[11px] text-zinc-400 hover:text-zinc-600 transition-colors font-sans flex items-center space-x-1"
+          >
+            <span>※ 상세 조건 필터링 (M.A.K.E.R) 토글하기</span>
+          </button>
+        </div>
+
+        {/* Interactive Filters Bar (Collapsible/Hidden by default to keep clean screenshot looks) */}
+        <div id="maker-advanced-filters" className="hidden bg-zinc-50 border border-zinc-100 p-6 space-y-5 rounded-sm shadow-xs mb-8">
           {/* MAKER Stage Selectors */}
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest min-w-[120px] font-sans">
               M.A.K.E.R 단계
             </span>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 font-sans">
               {['전체', 'M:만남', 'A:질문', 'K:이해', 'E:표현', 'R:연결'].map(stage => {
                 const isActive = selectedMakerStage === stage;
                 return (
                   <button
                     key={stage}
                     onClick={() => setSelectedMakerStage(stage)}
-                    className={`px-4 py-2 text-xs font-serif transition-all duration-300 border cursor-pointer rounded-sm ${
+                    className={`px-4 py-1.5 text-xs font-sans transition-all duration-300 border cursor-pointer rounded-sm ${
                       isActive
-                        ? 'bg-[#1A1A1A] text-[#FAF8F5] border-[#1A1A1A] shadow-md font-bold'
-                        : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:border-zinc-400'
+                        ? 'bg-zinc-900 text-white border-zinc-900 shadow-md font-bold'
+                        : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
                     }`}
                   >
                     {stage}
@@ -410,17 +572,17 @@ export default function ActivityPhotosPage() {
             <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest min-w-[120px] font-sans">
               문화유산 분류
             </span>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 font-sans">
               {['전체', '호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집', '기타'].map(heritage => {
                 const isActive = selectedHeritage === heritage;
                 return (
                   <button
                     key={heritage}
                     onClick={() => setSelectedHeritage(heritage)}
-                    className={`px-4 py-2 text-xs font-serif transition-all duration-300 border cursor-pointer rounded-sm ${
+                    className={`px-4 py-1.5 text-xs font-sans transition-all duration-300 border cursor-pointer rounded-sm ${
                       isActive
-                        ? 'bg-[#8C6239] text-[#FAF8F5] border-[#8C6239] shadow-md font-bold'
-                        : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:border-zinc-400'
+                        ? 'bg-[#8C6239] text-white border-[#8C6239] shadow-md font-bold'
+                        : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
                     }`}
                   >
                     {heritage}
@@ -431,75 +593,66 @@ export default function ActivityPhotosPage() {
           </div>
         </div>
 
-        {/* Dense Separator Line in benchmark color */}
-        <div className="h-0.5 bg-[#415174] w-full mb-10 shadow-xs" />
-
         {/* Main Grid Content */}
         {loading ? (
-          <div className="py-24 text-center text-zinc-400 font-serif">
+          <div className="py-24 text-center text-zinc-400 font-sans">
             아카이브에서 활동 내역을 가져오고 있습니다...
           </div>
         ) : filteredPhotos.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
             {filteredPhotos.map((photo, index) => (
               <motion.div
                 key={photo.id || index}
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: index * 0.05 }}
-                className="group cursor-pointer bg-white border border-[#EADFCB]/60 hover:border-[#8C6239]/60 transition-all shadow-xs hover:shadow-md flex flex-col justify-between"
+                className="group cursor-pointer bg-white transition-all flex flex-col justify-between align-top"
                 onClick={() => handleViewDetails(photo)}
               >
-                {/* Responsive Image Aspect Container */}
-                <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
+                {/* Responsive Image Aspect Container - Rectangular 16/10 aspect ratio matching screenshot */}
+                <div className="relative aspect-[16/10] bg-stone-50 overflow-hidden mb-4">
                   <img
                     src={photo.imageUrl}
                     alt={photo.title}
-                    className="w-full h-full object-cover group-hover:scale-105 duration-750 transition-transform"
+                    className="w-full h-full object-cover group-hover:scale-102 duration-500 transition-transform"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-3 left-3 px-2 py-1 bg-black/50 backdrop-blur-xs text-[9px] text-[#EADFCB] font-serif tracking-wider rounded-sm uppercase">
-                    {photo.category}
-                  </div>
                 </div>
 
                 {/* Body Details Area */}
-                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-                  <div className="space-y-2">
-                    <h3 className="text-md font-bold text-zinc-900 group-hover:text-[#8C6239] transition-colors leading-snug break-keep">
-                      {photo.title} ({photo.eventDate})
+                <div className="flex-1 flex flex-col justify-between space-y-2.5">
+                  <div className="space-y-1.5">
+                    <h3 className="text-[15px] font-bold text-zinc-950 group-hover:text-blue-600 transition-colors leading-snug break-keep text-left font-sans">
+                      {cleanActivityTitle(photo.title)} ({photo.eventDate})
                     </h3>
-                    <p className="text-xs text-zinc-500/90 leading-relaxed line-clamp-2 break-keep font-light h-8 font-serif">
+                    <p className="text-[12px] text-zinc-500/90 leading-relaxed line-clamp-2 break-keep h-9 font-sans text-left">
                       {photo.description}
                     </p>
                   </div>
 
-                  {/* Icon Block Rows matched directly to your screenshot */}
-                  <div className="flex items-center space-x-4 border-t border-zinc-100 pt-3.5 text-[11px] text-zinc-500 font-serif">
-                    {/* Author Icon Row */}
-                    <div className="flex items-center space-x-1">
-                      <User className="w-3.5 h-3.5 text-[#3C82F6]" />
-                      <span className="font-semibold text-zinc-700">{photo.author}</span>
+                  {/* Icon Block Meta Row exactly formatted per user's screenshot */}
+                  <div className="flex items-center space-x-4 text-[11px] font-sans text-zinc-400 font-medium leading-none pt-2">
+                    {/* Blue user profile icon + name */}
+                    <div className="flex items-center text-zinc-500">
+                      <User className="w-3.5 h-3.5 text-blue-500 mr-1.5" />
+                      <span className="font-semibold text-zinc-600">{photo.author || '유아교육과'}</span>
                     </div>
 
-                    {/* Check Circle Icon Row (Reg Date) */}
-                    <div className="flex items-center space-x-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
+                    {/* Clock/Calendar date icon + dots formatted date */}
+                    <div className="flex items-center select-none text-zinc-400">
+                      <Clock className="w-3.5 h-3.5 text-zinc-300 mr-1.5" />
                       <span>
                         {photo.displayDate 
                           ? photo.displayDate.replace(/-/g, '.')
-                          : (photo.createdAt 
-                              ? new Date(photo.createdAt.seconds * 1000).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1)
-                              : `2026.05.31`
-                            )
+                          : `2026.${photo.eventDate || '05.31'}`
                         }
                       </span>
                     </div>
 
-                    {/* View Count Row */}
-                    <div className="flex items-center space-x-1">
-                      <Eye className="w-3.5 h-3.5 text-[#3C82F6]" />
-                      <span>{photo.viewCount}</span>
+                    {/* View Count with grey eye icon */}
+                    <div className="flex items-center text-zinc-400">
+                      <Eye className="w-3.5 h-3.5 text-zinc-300 mr-1.5" />
+                      <span>{photo.viewCount || 0}</span>
                     </div>
                   </div>
                 </div>
@@ -608,10 +761,17 @@ export default function ActivityPhotosPage() {
 
                 {/* Admin specific action */}
                 {isAdmin && (
-                  <div className="flex justify-end pt-4 border-t border-zinc-100">
+                  <div className="flex justify-end pt-4 border-t border-zinc-100 space-x-2">
+                    <button
+                      onClick={() => setSelectedPost(activePhoto)}
+                      className="px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 text-xs font-serif transition-colors rounded-sm flex items-center space-x-1 cursor-pointer"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>수정하기</span>
+                    </button>
                     <button
                       onClick={() => handleDelete(activePhoto.id)}
-                      className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 text-xs font-serif transition-colors rounded-sm flex items-center space-x-1"
+                      className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 text-xs font-serif transition-colors rounded-sm flex items-center space-x-1 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>활동 내역 삭제</span>
@@ -866,6 +1026,189 @@ export default function ActivityPhotosPage() {
                       className="px-6 py-2.5 bg-[#8C6239] hover:bg-[#6D4926] text-white flex items-center justify-center space-x-2"
                     >
                       {uploadProgress ? '등록 중...' : '등록하기'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal (selectedPost) */}
+      <AnimatePresence>
+        {selectedPost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setSelectedPost(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-[#FAF8F5] border border-[#EADFCB] rounded-sm p-6 md:p-8 shadow-2xl overflow-y-auto max-h-[90vh]"
+            >
+              <div className="space-y-6">
+                <div className="flex justify-between items-center pb-3 border-b border-[#EADFCB]/50">
+                  <h4 className="text-xl font-bold font-serif text-[#1A1A1A] flex items-center space-x-2">
+                    <Edit className="w-5 h-5 text-[#8C6239]" />
+                    <span>활동 기록 수정 (관리자전용)</span>
+                  </h4>
+                  <button 
+                    onClick={() => setSelectedPost(null)}
+                    className="p-1 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveEdit} className="space-y-4 font-serif text-xs">
+                  {/* M.A.K.E.R Stage Selector */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider block mb-1">M.A.K.E.R 단계 선택</label>
+                    <select
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239] cursor-pointer"
+                      value={editMakerStage}
+                      onChange={(e) => setEditMakerStage(e.target.value)}
+                    >
+                      <option value="">선택 안 함 (없음)</option>
+                      <option value="M:만남">M:만남</option>
+                      <option value="A:질문">A:질문</option>
+                      <option value="K:이해">K:이해</option>
+                      <option value="E:표현">E:표현</option>
+                      <option value="R:연결">R:연결</option>
+                    </select>
+                  </div>
+
+                  {/* Cultural Heritage Selector */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider block mb-1">문화유산 분류 선택</label>
+                    <select
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239] cursor-pointer"
+                      value={editHeritage}
+                      onChange={(e) => setEditHeritage(e.target.value)}
+                    >
+                      <option value="호조벌">호조벌</option>
+                      <option value="관곡지">관곡지</option>
+                      <option value="오이도 패총">오이도 패총</option>
+                      <option value="군자봉성황제">군자봉성황제</option>
+                      <option value="능곡선사유적지">능곡선사유적지</option>
+                      <option value="갯골·염전">갯골·염전</option>
+                      <option value="생금집">생금집</option>
+                      <option value="기타">기타</option>
+                    </select>
+                  </div>
+
+                  {/* Title */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">활동 상세 제목</label>
+                    <input
+                      required
+                      type="text"
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
+                      placeholder="예: 탐방 학습지 제작"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Event Date */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">날짜 표시 (예: 05.11 또는 04.10~04.11)</label>
+                    <input
+                      type="text"
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
+                      placeholder="05.11"
+                      value={editEventDate}
+                      onChange={(e) => setEditEventDate(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Date selection */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">등록일자 선택</label>
+                    <input
+                      type="date"
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
+                      value={editDisplayDate}
+                      onChange={(e) => setEditDisplayDate(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Club Category */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">구분 (게시판 카테고리)</label>
+                    <select
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239] cursor-pointer"
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value as any)}
+                    >
+                      <option value="기본1 (기초)">기본1 (기초)</option>
+                      <option value="기본2(중급)">기본2(중급)</option>
+                      <option value="기본3(고급)">기본3(고급)</option>
+                    </select>
+                  </div>
+
+                  {/* Author / Crew Name */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">소속 학과 / 탐구동아리명</label>
+                    <input
+                      type="text"
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
+                      placeholder="소속 학과 혹은 탐구동아리명"
+                      value={editAuthor}
+                      onChange={(e) => setEditAuthor(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Image URL option */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">활동 이미지 URL 주소</label>
+                    <input
+                      type="text"
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
+                      placeholder="https://images.unsplash.com/photo-..."
+                      value={editImageUrl}
+                      onChange={(e) => setEditImageUrl(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Description Box */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-500 font-bold tracking-wider">상세 활동 설명</label>
+                    <textarea
+                      rows={4}
+                      className="w-full p-3 bg-white border border-[#EADFCB] rounded-sm text-xs outline-none focus:border-[#8C6239]"
+                      placeholder="활동에 관련된 세부 내용을 작성해주세요"
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Submit buttons */}
+                  <div className="flex gap-2 pt-4 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPost(null)}
+                      className="px-4 py-2.5 bg-white border border-zinc-200 hover:bg-stone-50 text-[#1A1A1A] cursor-pointer"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={uploadProgress}
+                      className="px-6 py-2.5 bg-[#8C6239] hover:bg-[#6D4926] text-white flex items-center justify-center space-x-2 cursor-pointer"
+                    >
+                      <span>{uploadProgress ? '수정 중...' : '수정 완료'}</span>
                     </button>
                   </div>
                 </form>

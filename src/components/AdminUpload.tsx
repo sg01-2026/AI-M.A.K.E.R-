@@ -1,6 +1,6 @@
 import React, { useState, FormEvent, useEffect, useRef } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestoreUtils';
 import { useAuth } from '../context/AuthContext';
@@ -11,9 +11,27 @@ import { ALL_CATEGORIES } from '../constants';
 interface AdminUploadProps {
   initialCategory?: string;
   onUploadSuccess?: () => void;
+  editingResource?: any;
+  onCancelEdit?: () => void;
+  onEditSuccess?: (id: string, updatedFields: any) => void;
 }
 
-export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminUploadProps) {
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('파일을 읽는 데 실패했습니다.'));
+      }
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+};
+
+export default function AdminUpload({ initialCategory, onUploadSuccess, editingResource, onCancelEdit, onEditSuccess }: AdminUploadProps) {
   const { user, isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -33,11 +51,68 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
     category: initialCategory || ALL_CATEGORIES[0]
   });
 
-  useEffect(() => {
-    if (initialCategory) {
-      setForm(prev => ({ ...prev, category: initialCategory }));
+  const handleClose = () => {
+    setIsOpen(false);
+    if (onCancelEdit) {
+      onCancelEdit();
     }
-  }, [initialCategory]);
+  };
+
+  useEffect(() => {
+    if (editingResource) {
+      setIsOpen(true);
+      
+      const cleanTitle = (title: string) => {
+        let clean = title.replace(/^\[[^\]]+\]\s*/, '');
+        if (clean.includes(' - ')) {
+          const parts = clean.split(' - ');
+          clean = parts.slice(1).join(' - ');
+        }
+        return clean;
+      };
+
+      const hSelect = ['호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집'].includes(editingResource.heritage || '')
+        ? (editingResource.heritage || '호조벌')
+        : (editingResource.heritage ? '기타' : '호조벌');
+
+      const customH = hSelect === '기타' ? (editingResource.heritage || '') : '';
+
+      setForm({
+        title: cleanTitle(editingResource.title),
+        type: editingResource.type || 'image',
+        fileUrl: editingResource.fileUrl || '',
+        description: editingResource.description || '',
+        category: editingResource.category || initialCategory || ALL_CATEGORIES[0]
+      });
+      setMakerStage(editingResource.makerStage || '');
+      setHeritageSelect(hSelect);
+      setCustomHeritage(customH);
+      
+      let dVal = new Date().toISOString().split('T')[0];
+      if (editingResource.displayDate) {
+        if (/^\d{4}\.\d{2}\.\d{2}$/.test(editingResource.displayDate)) {
+          dVal = editingResource.displayDate.replace(/\./g, '-');
+        } else {
+          dVal = editingResource.displayDate;
+        }
+      }
+      setDisplayDate(dVal);
+      setSelectedFile(null);
+    } else {
+      setForm({
+        title: '',
+        type: 'image',
+        fileUrl: '',
+        description: '',
+        category: initialCategory || ALL_CATEGORIES[0]
+      });
+      setMakerStage('');
+      setHeritageSelect('호조벌');
+      setCustomHeritage('');
+      setDisplayDate(new Date().toISOString().split('T')[0]);
+      setSelectedFile(null);
+    }
+  }, [editingResource, initialCategory]);
 
   if (!isAdmin) return null;
 
@@ -70,11 +145,27 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
 
       if (selectedFile) {
         setUploadProgress(10);
-        const storageRef = ref(storage, `resources/${Date.now()}_${selectedFile.name}`);
-        const snapshot = await uploadBytes(storageRef, selectedFile);
-        setUploadProgress(50);
-        finalFileUrl = await getDownloadURL(snapshot.ref);
-        setUploadProgress(90);
+        try {
+          const uploadPromise = async () => {
+            const storageRef = ref(storage, `resources/${Date.now()}_${selectedFile.name}`);
+            const snapshot = await uploadBytes(storageRef, selectedFile);
+            return await getDownloadURL(snapshot.ref);
+          };
+
+          const timeoutPromise = new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error("Storage timeout")), 3000)
+          );
+
+          finalFileUrl = await Promise.race([uploadPromise(), timeoutPromise]);
+          setUploadProgress(90);
+        } catch (storageError) {
+          console.warn("Storage upload failed or timed out, falling back to Base64:", storageError);
+          if (selectedFile.size > 800 * 1024) {
+            throw new Error("파일 크기가 너무 큽니다 (최대 800KB). 이미지 크기를 줄이거나 더 저용량 주소로 작성해 주세요.");
+          }
+          finalFileUrl = await fileToBase64(selectedFile);
+          setUploadProgress(90);
+        }
       }
 
       if (!finalFileUrl) {
@@ -87,6 +178,75 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
       const computedTitleWithoutStage = baseTitle ? (baseTitle + finalTitlePart) : form.title.trim();
 
       const finalTitle = makerStage ? `[${makerStage}] ${computedTitleWithoutStage}` : computedTitleWithoutStage;
+
+      if (editingResource) {
+        const isSeed = editingResource.id.startsWith('seed-');
+        
+        const updatedFields = {
+          title: finalTitle,
+          type: form.type,
+          fileUrl: finalFileUrl,
+          description: form.description,
+          category: form.category,
+          displayDate: displayDate,
+          makerStage: makerStage || null,
+          heritage: chosenHeritage || null
+        };
+
+        if (selectedFile && editingResource.fileUrl && (editingResource.fileUrl.includes('firebasestorage.googleapis.com') || editingResource.fileUrl.startsWith('gs://'))) {
+          try {
+            const oldFileRef = ref(storage, editingResource.fileUrl);
+            await deleteObject(oldFileRef);
+          } catch (stErr) {
+            console.warn("Could not delete old storage asset:", stErr);
+          }
+        }
+
+        if (!isSeed) {
+          try {
+            const resourceRef = doc(db, 'resources', editingResource.id);
+            await updateDoc(resourceRef, {
+              title: finalTitle,
+              type: form.type,
+              fileUrl: finalFileUrl,
+              description: form.description,
+              category: form.category,
+              displayDate: displayDate,
+              makerStage: makerStage || null,
+              heritage: chosenHeritage || null
+            });
+          } catch (error) {
+            try {
+              const photoRef = doc(db, 'activity_photos', editingResource.id);
+              await updateDoc(photoRef, {
+                title: finalTitle,
+                category: form.category,
+                makerStage: makerStage || null,
+                heritage: chosenHeritage || null,
+                imageUrl: finalFileUrl,
+                description: form.description
+              });
+            } catch (photoErr) {
+              handleFirestoreError(error, OperationType.UPDATE, `resources/${editingResource.id}`);
+            }
+          }
+        }
+
+        alert('성공적으로 수정되었습니다.');
+        if (onEditSuccess) {
+          onEditSuccess(editingResource.id, updatedFields);
+        }
+
+        setForm({ ...form, title: '', type: 'image', fileUrl: '', description: '' });
+        setSelectedFile(null);
+        setMakerStage('');
+        setHeritageSelect('호조벌');
+        setCustomHeritage('');
+        setDisplayDate(new Date().toISOString().split('T')[0]);
+        setUploadProgress(0);
+        setIsOpen(false);
+        return;
+      }
 
       const resourceData = {
         ...form,
@@ -163,7 +323,7 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 bg-ink-900/60 backdrop-blur-sm"
-              onClick={() => setIsOpen(false)}
+              onClick={handleClose}
             />
             
             <motion.div
@@ -174,7 +334,7 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
             >
               <div className="hanji-texture absolute inset-0 opacity-10 pointer-events-none" />
               <button 
-                onClick={() => setIsOpen(false)}
+                onClick={handleClose}
                 className="absolute top-4 right-4 text-ink-800/40 hover:text-ink-800"
               >
                 <X className="w-5 h-5" />
@@ -182,8 +342,8 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
 
               <div className="space-y-6 relative z-10 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
                 <div className="text-center">
-                  <h2 className="text-2xl font-serif text-ink-900">자료 업로드 (Admin)</h2>
-                  <p className="text-[10px] text-gold-600 font-serif uppercase tracking-widest mt-1">아카이브 등록</p>
+                  <h2 className="text-2xl font-serif text-ink-900">{editingResource ? '자료 수정 (Admin)' : '자료 업로드 (Admin)'}</h2>
+                  <p className="text-[10px] text-gold-600 font-serif uppercase tracking-widest mt-1">{editingResource ? '아카이브 수정' : '아카이브 등록'}</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4 font-serif">
@@ -371,19 +531,44 @@ export default function AdminUpload({ initialCategory, onUploadSuccess }: AdminU
                     </div>
                   )}
 
-                  <button 
-                    disabled={loading}
-                    className="w-full py-4 bg-ink-900 text-gold-500 font-bold uppercase tracking-widest hover:bg-ink-800 transition-all disabled:opacity-50 mt-4 relative overflow-hidden"
-                  >
-                    {loading && (
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${uploadProgress}%` }}
-                        className="absolute inset-0 bg-gold-500/20"
-                      />
-                    )}
-                    <span className="relative z-10">{loading ? '제출 중...' : '아카이브에 기록하기'}</span>
-                  </button>
+                  {editingResource ? (
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <button 
+                        type="button"
+                        onClick={handleClose}
+                        className="py-4 border border-ink-900/10 text-ink-950 font-bold uppercase tracking-widest hover:bg-stone-100 transition-all cursor-pointer text-xs"
+                      >
+                        수정 취소
+                      </button>
+                      <button 
+                        disabled={loading}
+                        className="py-4 bg-[#cc9c3d] text-ink-900 font-bold uppercase tracking-widest hover:bg-[#b58932] transition-all disabled:opacity-50 relative overflow-hidden cursor-pointer text-xs flex items-center justify-center border-0 outline-none font-serif"
+                      >
+                        {loading && (
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${uploadProgress}%` }}
+                            className="absolute inset-0 bg-ink-900/10"
+                          />
+                        )}
+                        <span className="relative z-10">{loading ? '제출 중...' : '수정 저장'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      disabled={loading}
+                      className="w-full py-4 bg-ink-900 text-gold-500 font-bold uppercase tracking-widest hover:bg-ink-800 transition-all disabled:opacity-50 mt-4 relative overflow-hidden cursor-pointer font-serif"
+                    >
+                      {loading && (
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${uploadProgress}%` }}
+                          className="absolute inset-0 bg-gold-500/20"
+                        />
+                      )}
+                      <span className="relative z-10">{loading ? '제출 중...' : '아카이브에 기록하기'}</span>
+                    </button>
+                  )}
                 </form>
               </div>
             </motion.div>

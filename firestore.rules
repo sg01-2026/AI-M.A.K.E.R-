@@ -45,28 +45,12 @@ service cloud.firestore {
 
     // Resources (Images/PDFs)
     match /resources/{resourceId} {
-      allow read: if true; // Publicly accessible to students
-      allow create: if isAdmin() && 
-                      isValidId(resourceId) &&
-                      request.resource.data.keys().hasAll(['title', 'type', 'fileUrl', 'category', 'createdAt', 'authorId']) &&
-                      request.resource.data.type in ['image', 'pdf'];
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow read, create, update, delete: if true;
     }
 
     // Student Activity Photos
     match /activity_photos/{photoId} {
-      allow read: if true; // Publicly accessible to all
-      allow create: if isAdmin() &&
-                      isValidId(photoId) &&
-                      request.resource.data.keys().hasAll(['title', 'description', 'imageUrl', 'category', 'eventDate', 'author', 'viewCount', 'createdAt']) &&
-                      request.resource.data.category in ['기본1 (기초)', '기본2(중급)', '기본3(고급)'] &&
-                      request.resource.data.viewCount == 0;
-      allow update: if isAdmin() || (
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']) && 
-                      request.resource.data.viewCount == resource.data.viewCount + 1
-                    );
-      allow delete: if isAdmin();
+      allow read, create, update, delete: if true;
     }
   }
 }

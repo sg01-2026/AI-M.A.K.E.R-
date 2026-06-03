@@ -1,10 +1,25 @@
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, PenTool, Sparkles, Image as ImageIcon, FileText, Code, Rocket, ExternalLink, Calendar, User, Eye, CheckCircle2, X } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { ChevronRight, PenTool, Sparkles, Image as ImageIcon, FileText, Code, Rocket, ExternalLink, Calendar, User, Eye, CheckCircle2, X, Clock, Trash2, Edit } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
+import { db, storage } from '../lib/firebase';
+import { handleFirestoreError, OperationType } from '../lib/firestoreUtils';
 import AdminUpload from '../components/AdminUpload';
+import { useAuth } from '../context/AuthContext';
+
+const cleanActivityTitle = (title: string) => {
+  // 1. Remove [M:만남] prefix
+  let clean = title.replace(/^\[[^\]]+\]\s*/, '');
+  // 2. If it contains "Heritage - Title", extract the Title part
+  if (clean.includes(' - ')) {
+    const parts = clean.split(' - ');
+    // Return the second part onwards
+    clean = parts.slice(1).join(' - ');
+  }
+  return clean;
+};
 
 interface Resource {
   id: string;
@@ -16,6 +31,7 @@ interface Resource {
   displayDate?: string;
   makerStage?: string;
   heritage?: string;
+  category?: string;
 }
 
 interface ActivityPhoto {
@@ -92,12 +108,35 @@ const clubLevels = {
 
 export default function ClubsPage() {
   const { level } = useParams<{ level: string }>();
+  const { isAdmin } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [selectedMakerStage, setSelectedMakerStage] = useState<string>('전체');
   const [selectedHeritage, setSelectedHeritage] = useState<string>('전체');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activityPhotos, setActivityPhotos] = useState<ActivityPhoto[]>([]);
   const [activePhoto, setActivePhoto] = useState<ActivityPhoto | null>(null);
+
+  // States to persist deleted posts and edited edits locally (for seamless instant deletion/updating of any item)
+  const [deletedIds, setDeletedIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('deleted_post_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [editedPosts, setEditedPosts] = useState<Record<string, Partial<Resource>>>(() => {
+    try {
+      const stored = localStorage.getItem('edited_post_data');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  // State to manage the editing modal
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
   
   const currentLevel = clubLevels[level as keyof typeof clubLevels] || clubLevels['기본1 (기초)'];
 
@@ -155,7 +194,123 @@ export default function ClubsPage() {
     }
   };
 
-  const filteredResources = resources.filter(res => {
+  const handleDeleteResource = async (e: React.MouseEvent, res: Resource) => {
+    e.stopPropagation(); // Prevent opening/clicking of card
+    
+    if (!window.confirm("정말 이 게시글을 삭제하시겠습니까?")) {
+      return;
+    }
+    
+    try {
+      if (!res.id) {
+        alert("유효한 게시글 ID를 찾을 수 없습니다.");
+        return;
+      }
+
+      // Add to deletedIds local list so it disappears instantly from the screen
+      const updatedDeleted = [...deletedIds, res.id];
+      setDeletedIds(updatedDeleted);
+      localStorage.setItem('deleted_post_ids', JSON.stringify(updatedDeleted));
+
+      // Delete Firebase Storage associated file if exists and is stored on Firebase
+      if (res.fileUrl && (res.fileUrl.includes('firebasestorage.googleapis.com') || res.fileUrl.startsWith('gs://'))) {
+        try {
+          const fileRef = ref(storage, res.fileUrl);
+          await deleteObject(fileRef);
+          console.log("Deleted associated Storage file successfully:", res.fileUrl);
+        } catch (stErr) {
+          console.warn("Storage file deletion skipped or failed:", stErr);
+        }
+      }
+
+      const isSeed = res.id.startsWith('seed-');
+      if (!isSeed) {
+        // Try deletion directly on both collections in Firestore.
+        try {
+          await deleteDoc(doc(db, 'resources', res.id));
+        } catch (dbErr) {
+          try {
+            await deleteDoc(doc(db, 'activity_photos', res.id));
+          } catch (photoErr) {
+            handleFirestoreError(dbErr, OperationType.DELETE, `resources/${res.id}`);
+          }
+        }
+      }
+      
+      alert("성공적으로 삭제되었습니다.");
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      alert("삭제 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleOpenEditModal = (e: React.MouseEvent, res: Resource) => {
+    e.stopPropagation();
+    setEditingResource(res);
+  };
+
+
+
+  const displayActivityPhotos = (() => {
+    const matchingFromDb = activityPhotos.filter(photo => photo.category === level);
+    const matchingFromDefaults = DEFAULT_ACTIVITY_PHOTOS.filter(photo => photo.category === level);
+    // Combine them, avoiding duplicates by title
+    return [
+      ...matchingFromDb,
+      ...matchingFromDefaults.filter(dp => !matchingFromDb.some(dbPhoto => dbPhoto.title.includes(dp.title) || dbPhoto.description.includes(dp.description.substring(0, 10))))
+    ];
+  })();
+
+  // Map activity photos to resources so they can accumulate and stack in "학생 활동 아카이브"
+  const activityPhotosAsResources: Resource[] = displayActivityPhotos.map(photo => {
+    const stage = photo.makerStage || (photo.category === '기본3(고급)' || photo.category === '기본3 (고급)' ? 'K:이해' : (photo.category === '기본2(중급)' || photo.category === '기본2 (중급)' ? 'A:질문' : 'M:만남'));
+    const heritageItem = photo.heritage || (photo.id === 'seed-1' ? '생금집' : (photo.id === 'seed-2' ? '호조벌' : '관곡지'));
+    
+    return {
+      id: photo.id,
+      title: photo.title.startsWith('[') ? photo.title : `[${stage}] ${photo.title}`,
+      type: 'image' as const,
+      fileUrl: photo.imageUrl,
+      description: photo.description,
+      createdAt: photo.createdAt || new Date(2026, 4, 31),
+      displayDate: photo.displayDate || `2026.${photo.eventDate || '05.31'}`,
+      makerStage: stage,
+      heritage: heritageItem
+    };
+  });
+
+  // Combine both sources
+  const combinedAllResources = [
+    ...resources,
+    ...activityPhotosAsResources
+  ];
+
+  // Merge with locally edited values
+  const finalResources = combinedAllResources.map(res => {
+    if (editedPosts[res.id]) {
+      return {
+        ...res,
+        ...editedPosts[res.id]
+      };
+    }
+    return res;
+  });
+
+  // Filter out deleted posts
+  const activeResources = finalResources.filter(res => !deletedIds.includes(res.id));
+
+  // Sort them dynamically (Firestore timestamp, JS Date, or simple logic)
+  const sortedCombinedResources = [...activeResources].sort((a, b) => {
+    const getMs = (item: any) => {
+      if (item.createdAt?.seconds) return item.createdAt.seconds * 1000;
+      if (item.createdAt instanceof Date) return item.createdAt.getTime();
+      return 0;
+    };
+    return getMs(b) - getMs(a);
+  });
+
+  // Filter the unified resources array exactly like resources
+  const filteredResources = sortedCombinedResources.filter(res => {
     // 1. Maker Stage Filter
     const stageMatch = 
       selectedMakerStage === '전체' ||
@@ -180,14 +335,6 @@ export default function ClubsPage() {
 
     return stageMatch && heritageMatch && searchMatch;
   });
-
-  const displayActivityPhotos = (() => {
-    const matchingFromDb = activityPhotos.filter(photo => photo.category === level);
-    if (matchingFromDb.length > 0) {
-      return matchingFromDb;
-    }
-    return DEFAULT_ACTIVITY_PHOTOS.filter(photo => photo.category === level);
-  })();
 
   return (
     <div className="min-h-screen bg-hanji-50 pb-20 font-serif">
@@ -216,7 +363,7 @@ export default function ClubsPage() {
 
       <section className="max-w-7xl mx-auto px-4 py-20 space-y-32">
         {/* Curriculum Section */}
-        <div className="space-y-12">
+        <div className="space-y-12 font-sans">
           <div className="text-center space-y-4">
             <span className="text-gold-600 font-serif uppercase tracking-[0.3em] text-[10px] font-bold opacity-60">Learning Journey</span>
             <h2 className="text-3xl md:text-4xl font-serif text-ink-900">핵심 학습 주제</h2>
@@ -243,83 +390,6 @@ export default function ClubsPage() {
           </div>
         </div>
 
-        {/* Student Activity Photos Section */}
-        <div className="space-y-12">
-          <div className="text-center space-y-4">
-            <span className="text-gold-600 font-serif uppercase tracking-[0.3em] text-[10px] font-bold opacity-60">Visual Archive</span>
-            <h2 className="text-3xl md:text-4xl font-serif text-ink-900">동아리 활동사진</h2>
-            <div className="h-0.5 w-16 bg-gold-500 mx-auto opacity-20" />
-            <p className="text-ink-800/50 font-serif text-sm max-w-xl mx-auto">
-              배움과 만남의 순간 속에서 피어난 동아리 학생들의 아름답고 생생한 활동 기록입니다.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {displayActivityPhotos.map((photo, index) => (
-              <motion.div
-                key={photo.id || index}
-                initial={{ opacity: 0, y: 15 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: index * 0.05 }}
-                viewport={{ once: true }}
-                className="group cursor-pointer bg-white border border-gold-500/10 hover:border-gold-500/30 transition-all shadow-sm hover:shadow-md flex flex-col justify-between"
-                onClick={() => handleViewDetails(photo)}
-              >
-                {/* Image Container with Aspect Ratio */}
-                <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
-                  <img
-                    src={photo.imageUrl}
-                    alt={photo.title}
-                    className="w-full h-full object-cover group-hover:scale-105 duration-700 transition-transform"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-xs text-[9px] text-gold-400 font-sans tracking-wider uppercase font-bold">
-                    {photo.category}
-                  </div>
-                </div>
-
-                {/* Card Body Details */}
-                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-                  <div className="space-y-2">
-                    <h3 className="text-md font-bold text-ink-900 group-hover:text-gold-600 transition-colors leading-snug break-keep text-left">
-                      {photo.title} ({photo.eventDate})
-                    </h3>
-                    <p className="text-xs text-ink-800/60 leading-relaxed line-clamp-2 break-keep font-light h-8 font-serif text-left">
-                      {photo.description}
-                    </p>
-                  </div>
-
-                  {/* Icon Block Rows */}
-                  <div className="flex items-center space-x-4 border-t border-gold-500/10 pt-3.5 text-[11px] text-ink-800/40 font-serif">
-                    <div className="flex items-center space-x-1">
-                      <User className="w-3.5 h-3.5 text-gold-600" />
-                      <span className="font-semibold text-ink-800/70">{photo.author}</span>
-                    </div>
-
-                    <div className="flex items-center space-x-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600/70" />
-                      <span>
-                        {photo.displayDate 
-                          ? photo.displayDate.replace(/-/g, '.')
-                          : (photo.createdAt 
-                              ? new Date(photo.createdAt.seconds * 1000).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1)
-                              : `2026.05.31`
-                            )
-                        }
-                      </span>
-                    </div>
-
-                    <div className="flex items-center space-x-1">
-                      <Eye className="w-3.5 h-3.5 text-gold-500" />
-                      <span>{photo.viewCount || 0}</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
         {/* Board Archive Section */}
         <div className="space-y-12">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-ink-900/10 pb-10">
@@ -330,8 +400,8 @@ export default function ClubsPage() {
                </p>
              </div>
              
-             <div className="flex w-full md:w-auto items-stretch shadow-sm">
-                <div className="flex-1 md:w-80 relative">
+             <div className="flex flex-col sm:flex-row w-full md:w-auto items-stretch sm:items-center gap-3">
+                <div className="relative md:w-80 shadow-sm flex-1">
                   <input 
                     type="text" 
                     placeholder="검색어를 입력하세요."
@@ -341,6 +411,24 @@ export default function ClubsPage() {
                   />
                   <Sparkles className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gold-500/40" />
                 </div>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      const btn = document.querySelector('.fixed.bottom-8.right-8 button') as HTMLButtonElement;
+                      if (btn) {
+                        btn.click();
+                      } else {
+                        // Fallback UI helper
+                        const uploadTrigger = document.querySelector('[class*="fixed bottom-"]') as HTMLElement;
+                        if (uploadTrigger) uploadTrigger.click();
+                      }
+                    }}
+                    className="px-5 py-3.5 bg-gold-500 hover:bg-gold-600 active:scale-[0.98] text-ink-900 font-sans font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-sm flex items-center justify-center space-x-1.5 whitespace-nowrap cursor-pointer"
+                  >
+                    <span>NEW POST</span>
+                  </button>
+                )}
              </div>
           </div>
 
@@ -397,53 +485,127 @@ export default function ClubsPage() {
             </div>
           </div>
 
-          <div className="bg-white border border-ink-900/5 overflow-hidden shadow-sm">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-ink-900/[0.03] border-b border-ink-900/10">
-                  <th className="px-6 py-5 text-center font-serif text-xs uppercase tracking-widest font-bold text-ink-900/40 w-24">번호</th>
-                  <th className="px-6 py-5 text-left font-serif text-xs uppercase tracking-widest font-bold text-ink-900/40">제목</th>
-                  <th className="px-6 py-5 text-center font-serif text-xs uppercase tracking-widest font-bold text-ink-900/40 w-32">등록일</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink-900/5">
-                 {filteredResources.length > 0 ? (
-                   filteredResources.map((res, idx) => (
-                     <tr key={res.id} className="hover:bg-gold-500/[0.01] transition-colors group cursor-pointer">
-                       <td className="px-6 py-5 text-center font-serif text-sm text-ink-800/20">
-                         {filteredResources.length - idx}
-                       </td>
-                       <td className="px-6 py-5">
-                         <a 
-                           href={res.fileUrl}
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           className="flex items-center space-x-3 group-hover:text-gold-600 transition-colors"
-                         >
-                           {res.type === 'image' ? <ImageIcon className="w-4 h-4 text-gold-500/20" /> : <FileText className="w-4 h-4 text-gold-500/20" />}
-                           <span className="font-serif text-sm text-ink-900 group-hover:underline underline-offset-4 decoration-gold-500/30 line-clamp-1">{res.title}</span>
-                         </a>
-                       </td>
-                       <td className="px-6 py-5 text-center font-serif text-sm text-ink-800/20">
-                         {res.displayDate 
-                           ? res.displayDate.replace(/-/g, '.')
-                           : (res.createdAt 
-                               ? new Date(res.createdAt.seconds * 1000).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1)
-                               : '2024.05.18'
-                             )
-                         }
-                       </td>
-                     </tr>
-                   ))
-                 ) : (
-                   <tr>
-                     <td colSpan={3} className="px-6 py-24 text-center text-ink-800/20 font-serif italic text-sm">
-                       작성된 게시글이 없습니다.
-                     </td>
-                   </tr>
-                 )}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+            {filteredResources.length > 0 ? (
+              filteredResources.map((res, index) => {
+                const imageUrl = res.imageUrl || (res as any).thumbnailUrl || (res.type === 'image' ? res.fileUrl : 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&q=80&w=800');
+                const stage = res.makerStage || (res.title.match(/^\[(.*?)\]/) ? res.title.match(/^\[(.*?)\]/)![1] : (level === '기본3(고급)' || level === '기본3 (고급)' ? 'K:이해' : (level === '기본2(중급)' || level === '기본2 (중급)' ? 'A:질문' : 'M:만남')));
+                const heritageItem = res.heritage || ['호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집'].find(h => res.title.includes(h)) || '생금집';
+                const cleanTitle = cleanActivityTitle(res.title);
+                const displayDateString = res.displayDate 
+                  ? res.displayDate.replace(/-/g, '.')
+                  : (res.createdAt 
+                      ? (res.createdAt.seconds 
+                          ? new Date(res.createdAt.seconds * 1000).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1)
+                          : new Date(res.createdAt).toLocaleDateString('ko-KR').replace(/ /g, '').slice(0, -1)
+                        )
+                      : '2026.05.31'
+                    );
+
+                return (
+                  <motion.div
+                    key={res.id || index}
+                    initial={{ opacity: 0, y: 15 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: index * 0.05 }}
+                    viewport={{ once: true }}
+                    className="group cursor-pointer bg-white transition-all flex flex-col justify-between align-top border border-zinc-100/80 hover:border-gold-500/30 rounded-xs overflow-hidden shadow-xs hover:shadow-md"
+                    onClick={() => {
+                      if (res.fileUrl) {
+                        window.open(res.fileUrl, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                  >
+                    {/* Thumbnail Section */}
+                    <div className="relative aspect-[16/10] bg-stone-50 overflow-hidden">
+                      <img
+                        src={imageUrl}
+                        alt={cleanTitle}
+                        className="w-full h-full object-cover group-hover:scale-102 duration-500 transition-transform"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&q=80&w=800';
+                        }}
+                      />
+                      {/* File type badge */}
+                      <div className="absolute top-3 left-3 px-2 py-1 bg-[#414141] text-[9px] font-sans font-bold text-[#FAF8F5] tracking-widest uppercase rounded-xs">
+                        {res.type === 'pdf' ? 'PDF' : 'IMAGE'}
+                      </div>
+                      
+                      {/* Admin Controls Box */}
+                      {isAdmin && (
+                        <div className="absolute top-3 right-3 flex items-center space-x-1.5 z-10">
+                          {/* Edit Button */}
+                          <button
+                            onClick={(e) => handleOpenEditModal(e, res)}
+                            className="bg-gold-500 text-ink-900 px-2.5 py-1.5 font-sans font-bold text-[10px] sm:text-xs rounded-sm shadow-md hover:bg-gold-600 hover:scale-105 active:scale-[95] transition-all flex items-center space-x-1 cursor-pointer border border-gold-500/20"
+                            title="수정"
+                          >
+                            <Edit className="w-3 h-3" />
+                            <span>수정</span>
+                          </button>
+                          
+                          {/* Delete Button */}
+                          <button
+                            onClick={(e) => handleDeleteResource(e, res)}
+                            className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-full shadow-md hover:scale-105 active:scale-[95] transition-all cursor-pointer border border-red-700/20"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Metadata Detail Section */}
+                    <div className="p-5 flex-grow flex flex-col justify-between space-y-3">
+                      <div className="space-y-2.5">
+                        {/* Enlarged badges as requested */}
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          <span className="font-sans font-bold text-amber-700 bg-amber-50 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-sm text-xs sm:text-[13px] border border-amber-500/15 leading-none shadow-2xs select-none">
+                            {stage}
+                          </span>
+                          <span className="font-sans font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-sm text-xs sm:text-[13px] border border-emerald-500/15 leading-none shadow-2xs select-none">
+                            {heritageItem}
+                          </span>
+                        </div>
+
+                        {/* Title text hidden in Card UI but preserved in data as per user request */}
+                        {/* <h3 className="text-[14px] font-bold text-zinc-950 group-hover:text-blue-600 transition-colors leading-snug break-keep text-left font-sans line-clamp-2">
+                          {cleanTitle}
+                        </h3> */}
+
+                        <p className="text-[12.5px] text-zinc-650 leading-relaxed line-clamp-2 break-keep h-10 font-sans text-left mt-1">
+                          {res.description || ''}
+                        </p>
+                      </div>
+
+                      {/* Info Row Bottom */}
+                      <div className="flex items-center space-x-3 text-[10.5px] font-sans text-zinc-400 font-medium leading-none pt-2.5 border-t border-zinc-100">
+                        <div className="flex items-center text-zinc-500">
+                          <User className="w-3.5 h-3.5 text-blue-500 mr-1" />
+                          <span className="font-semibold text-zinc-600">{(res as any).author || '동아리 학생'}</span>
+                        </div>
+
+                        <div className="flex items-center select-none text-zinc-400">
+                          <Clock className="w-3.5 h-3.5 text-zinc-300 mr-1" />
+                          <span>{displayDateString}</span>
+                        </div>
+
+                        <div className="flex items-center text-zinc-400">
+                          <Eye className="w-3.5 h-3.5 text-zinc-300 mr-1" />
+                          <span>{(res as any).viewCount || 82}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })
+            ) : (
+              <div className="col-span-full py-24 text-center text-zinc-400 font-sans italic text-sm">
+                작성된 게시글이 없습니다.
+              </div>
+            )}
           </div>
 
           {/* Pagination */}
@@ -480,7 +642,20 @@ export default function ClubsPage() {
         </div>
       </section>
 
-      <AdminUpload initialCategory={level} />
+      <AdminUpload 
+        initialCategory={level} 
+        editingResource={editingResource}
+        onCancelEdit={() => setEditingResource(null)}
+        onEditSuccess={(id, updatedFields) => {
+          const newEditedPosts = {
+            ...editedPosts,
+            [id]: updatedFields
+          };
+          setEditedPosts(newEditedPosts);
+          localStorage.setItem('edited_post_data', JSON.stringify(newEditedPosts));
+          setEditingResource(null);
+        }}
+      />
 
       {/* Pop-up Card Detailed Modal */}
       <AnimatePresence>
