@@ -14,6 +14,8 @@ import StaffPage from './pages/StaffPage';
 import PromotionPage from './pages/PromotionPage';
 import ContestPage from './pages/ContestPage';
 import ActivityPhotosPage from './pages/ActivityPhotosPage';
+import HeritageMainPage from './pages/HeritageMainPage';
+import HeritageArchivePage from './pages/HeritageArchivePage';
 
 export default function App() {
   return (
@@ -23,7 +25,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/project/:name" element={<HeritagePage />} />
-            <Route path="/heritage" element={<Home />} />
+            <Route path="/heritage" element={<HeritageMainPage />} />
+            <Route path="/heritage-archive" element={<HeritageArchivePage />} />
             <Route path="/resources" element={<ResourcesPage />} />
             <Route path="/clubs/:level" element={<ClubsPage />} />
             <Route path="/activity-photos" element={<ActivityPhotosPage />} />

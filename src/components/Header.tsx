@@ -8,19 +8,37 @@ import { auth, googleProvider } from '../lib/firebase';
 
 const menuItems = [
   {
-    title: '학생동아리',
+    title: 'AI디지털소양P',
     icon: <Users className="w-4 h-4" />,
     sub: ['기본1 (기초)', '기본2(중급)', '기본3(고급)']
   },
   {
-    title: '지역문화유산 프로젝트',
+    title: '지역문화P',
     icon: <BookOpen className="w-4 h-4" />,
-    sub: ['호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집']
-  },
-  {
-    title: '지도안 · 학습지',
-    icon: <GraduationCap className="w-4 h-4" />,
-    sub: ['수업 지도안', '활동지', '프로젝트 활동 자료', '프롬프트 예시', 'AI 활용 가이드']
+    isNested: true,
+    categories: [
+      {
+        title: '문화유산',
+        sub: [
+          '능곡선사유적',
+          '오이도 패총',
+          '생금집',
+          '군자봉 성황제',
+          '호조벌',
+          '갯골·염전',
+          '관곡지',
+          '기타'
+        ]
+      },
+      {
+        title: '수업활동',
+        sub: [
+          '수업지도',
+          'P(프로젝트)활동',
+          'AI활용가이드'
+        ]
+      }
+    ]
   },
   {
     title: 'AI페스티벌',
@@ -33,7 +51,7 @@ const menuItems = [
     sub: ['AI활용연수', '디지털수업사례', 'AI체험프로그램', '프로젝트 운영자료']
   },
   {
-    title: '학부모참여 프로젝트학습',
+    title: '학부모참여P',
     icon: <Users className="w-4 h-4" />,
     sub: ['가족 참여 활동', '지역문화 체험', 'AI 체험 프로그램', '학부모 프로젝트 결과물']
   },
@@ -52,11 +70,14 @@ const menuItems = [
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSub, setActiveSub] = useState<string | null>(null);
+  const [mobileActiveMenu, setMobileActiveMenu] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginId, setLoginId] = useState('');
   const [loginPw, setLoginPw] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [desktopActiveCategory, setDesktopActiveCategory] = useState<string | null>(null);
+  const [mobileActiveCategory, setMobileActiveCategory] = useState<string | null>(null);
   
   const location = useLocation();
   const { user, isAdmin, logout, login } = useAuth();
@@ -90,19 +111,31 @@ export default function Header() {
   }, []);
 
   const getHref = (itemTitle: string, subItem: string) => {
-    if (itemTitle === '학생동아리') {
+    if (itemTitle === '학생동아리' || itemTitle === 'AI디지털소양P') {
       if (subItem === '학생 활동사진') return '/activity-photos';
       return `/clubs/${subItem}`;
     }
-    if (itemTitle === '지도안 · 학습지') {
+    if (
+      itemTitle === '지도안 · 학습지' ||
+      itemTitle === '지역문화유산·지도안 학습지' ||
+      itemTitle === '지역문화유산P' ||
+      itemTitle === '지역문화P'
+    ) {
+      if (subItem === '문화유산') return '/heritage';
+      if (subItem === '기타') return '/heritage-archive?heritage=기타';
       const sectionMap: Record<string, string> = {
         '수업 지도안': 'lesson',
+        '수업지도': 'lesson',
         '활동지': 'activity',
         '프로젝트 활동 자료': 'project-res',
+        'P(프로젝트)활동': 'project-res',
         '프롬프트 예시': 'prompt',
-        'AI 활용 가이드': 'guide'
+        'AI 활용 가이드': 'guide',
+        'AI활용가이드': 'guide'
       };
-      return `/resources#${sectionMap[subItem] || ''}`;
+      if (sectionMap[subItem]) {
+        return `/resources#${sectionMap[subItem]}`;
+      }
     }
     if (itemTitle === '교직원연수') {
       const sectionMap: Record<string, string> = {
@@ -132,10 +165,15 @@ export default function Header() {
       return `/contest#${sectionMap[subItem] || ''}`;
     }
     
-    // Default cases for other menus can be projects or specific pages
-    if (subItem === '활동 갤러리' || subItem === '갤러리') return '/project/갤러리'; // Example handler
+    // Convert dropdown subItem to exact project data keys to maintain original links
+    let targetSub = subItem;
+    if (subItem === '능곡선사유적') targetSub = '능곡선사유적지';
+    if (subItem === '군자봉 성황제') targetSub = '군자봉성황제';
     
-    return `/project/${subItem}`;
+    // Default cases for other menus can be projects or specific pages
+    if (targetSub === '활동 갤러리' || targetSub === '갤러리') return '/project/갤러리'; // Example handler
+    
+    return `/project/${targetSub}`;
   };
 
   return (
@@ -193,15 +231,45 @@ export default function Header() {
               <div 
                 key={item.title} 
                 className="relative group"
-                onMouseEnter={() => setActiveSub(item.title)}
-                onMouseLeave={() => setActiveSub(null)}
+                onMouseEnter={() => {
+                  setActiveSub(item.title);
+                  if (item.isNested) {
+                    setDesktopActiveCategory(null);
+                  }
+                }}
+                onMouseLeave={() => {
+                  setActiveSub(null);
+                  setDesktopActiveCategory(null);
+                }}
               >
-                <button className={`flex items-center space-x-1 py-4 transition-colors duration-200 text-[13px] font-bold ${
-                  scrolled ? 'text-gold-600 hover:text-ink-900' : 'text-gold-500 hover:text-white'
-                }`}>
-                  <span>{item.title}</span>
-                  <ChevronDown className="w-3 h-3 opacity-30" />
-                </button>
+                {item.title === '지역문화P' ? (
+                  <Link
+                    to="/heritage"
+                    className={`flex items-center space-x-1 py-4 transition-colors duration-200 text-[13px] font-bold cursor-pointer ${
+                      scrolled ? 'text-gold-600 hover:text-ink-900' : 'text-gold-500 hover:text-white'
+                    }`}
+                  >
+                    <span>{item.title}</span>
+                    <ChevronDown className="w-3 h-3 opacity-30" />
+                  </Link>
+                ) : (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const nextActive = activeSub === item.title ? null : item.title;
+                      setActiveSub(nextActive);
+                      if (!nextActive) {
+                        setDesktopActiveCategory(null);
+                      }
+                    }}
+                    className={`flex items-center space-x-1 py-4 transition-colors duration-200 text-[13px] font-bold cursor-pointer ${
+                      scrolled ? 'text-gold-600 hover:text-ink-900' : 'text-gold-500 hover:text-white'
+                    }`}
+                  >
+                    <span>{item.title}</span>
+                    <ChevronDown className="w-3 h-3 opacity-30" />
+                  </button>
+                )}
                 
                 <AnimatePresence>
                   {activeSub === item.title && (
@@ -209,18 +277,82 @@ export default function Header() {
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 5 }}
-                      className="absolute top-full left-0 w-52 bg-hanji-50 border border-gold-500/20 shadow-2xl rounded-sm p-1.5 z-[100]"
+                      className={`absolute top-full left-0 bg-hanji-50 border border-gold-500/20 shadow-2xl rounded-sm p-2 z-[100] ${
+                        item.isNested ? 'w-56' : 'w-52'
+                      }`}
                     >
                       <div className="absolute inset-0 hanji-texture opacity-20 pointer-events-none" />
-                      {item.sub.map((subItem) => (
-                        <Link
-                          key={subItem}
-                          to={getHref(item.title, subItem)}
-                          className="block px-3 py-2 text-xs text-ink-800 hover:bg-gold-500/10 hover:text-gold-600 rounded-sm transition-all duration-200"
-                        >
-                          {subItem}
-                        </Link>
-                      ))}
+                      
+                      {item.isNested ? (
+                        <div className="space-y-1.5 relative z-10 text-left">
+                          <Link
+                            to="/heritage"
+                            className="block px-3 py-1.5 text-xs font-bold font-serif text-gold-600 hover:text-gold-700 hover:bg-gold-500/10 rounded-sm transition-all text-left"
+                          >
+                            지역문화P 홈
+                          </Link>
+                          <hr className="border-gold-500/10 my-1" />
+                          
+                          {item.categories?.map((cat) => {
+                            const isCatActive = desktopActiveCategory === cat.title;
+                            return (
+                              <div 
+                                key={cat.title}
+                                className="space-y-1"
+                                onMouseEnter={() => setDesktopActiveCategory(cat.title)}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDesktopActiveCategory(isCatActive ? null : cat.title);
+                                  }}
+                                  className={`w-full flex items-center justify-between px-3 py-1.5 text-xs font-bold font-serif rounded-sm cursor-pointer transition-all ${
+                                    isCatActive ? 'bg-gold-500/10 text-gold-600' : 'text-ink-800 hover:bg-gold-500/5'
+                                  }`}
+                                >
+                                  <span>{cat.title}</span>
+                                  <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${isCatActive ? 'rotate-180' : ''}`} />
+                                </button>
+                                
+                                <AnimatePresence initial={false}>
+                                  {isCatActive && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.15 }}
+                                      className="pl-3 overflow-hidden flex flex-col space-y-1 border-l border-gold-500/10 ml-2.5"
+                                    >
+                                      {cat.sub.map((subItem) => (
+                                        <Link
+                                          key={subItem}
+                                          to={getHref(item.title, subItem)}
+                                          className="px-2 py-1 text-[11px] text-ink-800 hover:text-gold-600 rounded-sm transition-all text-left block"
+                                        >
+                                          • {subItem}
+                                        </Link>
+                                      ))}
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="relative z-10">
+                          {item.sub?.map((subItem) => (
+                            <Link
+                              key={subItem}
+                              to={getHref(item.title, subItem)}
+                              className="block px-3 py-2 text-xs text-ink-800 hover:bg-gold-500/10 hover:text-gold-600 rounded-sm transition-all duration-200 text-left"
+                            >
+                              {subItem}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -249,27 +381,107 @@ export default function Header() {
             className="fixed inset-0 z-40 bg-hanji-100 lg:hidden pt-20 px-4 overflow-y-auto"
           >
             <div className="hanji-texture absolute inset-0 opacity-10 pointer-events-none" />
-            <div className="space-y-6 pb-20 relative z-10">
-              {menuItems.map((item) => (
-                <div key={item.title} className="space-y-3">
-                  <div className="flex items-center space-x-2 text-gold-600 font-serif border-b border-gold-500/20 pb-2">
-                    {item.icon}
-                    <span className="text-lg">{item.title}</span>
+            <div className="space-y-6 pb-20 relative z-10 font-serif">
+              {menuItems.map((item) => {
+                const isExpanded = mobileActiveMenu === item.title;
+                return (
+                  <div key={item.title} className="space-y-2">
+                    <button
+                      onClick={() => setMobileActiveMenu(isExpanded ? null : item.title)}
+                      className="w-full flex items-center justify-between text-gold-600 border-b border-gold-500/20 pb-2 text-left font-bold cursor-pointer"
+                    >
+                      <div className="flex items-center space-x-2">
+                        {item.icon}
+                        <span className="text-base sm:text-lg">{item.title}</span>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    <AnimatePresence initial={false}>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="grid grid-cols-1 gap-2 pl-6 overflow-hidden text-left"
+                        >
+                          {item.isNested ? (
+                            <div className="space-y-3 py-1 bg-white/30 p-2 rounded-sm border border-gold-500/5 my-1 text-left">
+                              <Link
+                                to="/heritage"
+                                onClick={() => {
+                                  setIsOpen(false);
+                                  setMobileActiveCategory(null);
+                                  setMobileActiveMenu(null);
+                                }}
+                                className="w-full text-left font-serif font-bold text-sm py-1.5 px-1 block text-gold-600 hover:text-gold-700 transition-colors"
+                              >
+                                지역문화P 홈
+                              </Link>
+                              <hr className="border-gold-500/10 my-1" />
+                              
+                              {item.categories?.map((cat) => {
+                                const isCatExpanded = mobileActiveCategory === cat.title;
+                                return (
+                                  <div key={cat.title} className="space-y-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setMobileActiveCategory(isCatExpanded ? null : cat.title)}
+                                      className="w-full flex items-center justify-between text-gold-600/90 font-serif font-bold text-sm py-1.5 px-1 cursor-pointer"
+                                    >
+                                      <span>{cat.title}</span>
+                                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isCatExpanded ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    
+                                    <AnimatePresence initial={false}>
+                                      {isCatExpanded && (
+                                        <motion.div
+                                          initial={{ height: 0, opacity: 0 }}
+                                          animate={{ height: 'auto', opacity: 1 }}
+                                          exit={{ height: 0, opacity: 0 }}
+                                          transition={{ duration: 0.2 }}
+                                          className="grid grid-cols-1 gap-1.5 pl-4 overflow-hidden border-l border-gold-500/15 ml-1 pb-1"
+                                        >
+                                          {cat.sub?.map((subItem) => (
+                                            <Link
+                                              key={subItem}
+                                              to={getHref(item.title, subItem)}
+                                              onClick={() => {
+                                                setIsOpen(false);
+                                                setMobileActiveCategory(null);
+                                                setMobileActiveMenu(null);
+                                              }}
+                                              className="text-ink-800 hover:text-gold-600 transition-colors duration-200 py-1 text-xs text-left block"
+                                            >
+                                              • {subItem}
+                                            </Link>
+                                          ))}
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            item.sub?.map((subItem) => (
+                              <Link
+                                key={subItem}
+                                to={getHref(item.title, subItem)}
+                                onClick={() => setIsOpen(false)}
+                                className="text-ink-800 hover:text-gold-600 transition-colors duration-200 py-1.5 text-sm text-left block"
+                              >
+                                • {subItem}
+                              </Link>
+                            ))
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 pl-6">
-                    {item.sub.map((subItem) => (
-                      <Link
-                        key={subItem}
-                        to={getHref(item.title, subItem)}
-                        onClick={() => setIsOpen(false)}
-                        className="text-ink-800 hover:text-gold-600 transition-colors duration-200"
-                      >
-                        • {subItem}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </motion.div>
         )}

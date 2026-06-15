@@ -601,7 +601,7 @@ export default function Home() {
                <h2 className="text-3xl md:text-4xl font-serif text-[#FAF8F5]">시흥문화유산 화첩</h2>
              </div>
              <Link 
-               to="/heritage" 
+               to="/heritage-archive" 
                className="text-[#C5A880] flex items-center space-x-1.5 border-b border-[#C5A880]/30 pb-0.5 hover:text-[#FAF8F5] hover:border-[#FAF8F5] text-xs font-serif uppercase tracking-widest transition-all mt-4 md:mt-0"
              >
                <span>전체 유산 화첩</span>
