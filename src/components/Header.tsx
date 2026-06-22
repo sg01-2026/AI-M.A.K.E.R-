@@ -8,62 +8,30 @@ import { auth, googleProvider } from '../lib/firebase';
 
 const menuItems = [
   {
-    title: 'AI디지털소양P',
-    icon: <Users className="w-4 h-4" />,
-    sub: ['기본1 (기초)', '기본2(중급)', '기본3(고급)']
-  },
-  {
-    title: '지역문화P',
-    icon: <BookOpen className="w-4 h-4" />,
-    isNested: true,
-    categories: [
-      {
-        title: '문화유산',
-        sub: [
-          '능곡선사유적',
-          '오이도 패총',
-          '생금집',
-          '군자봉 성황제',
-          '호조벌',
-          '갯골·염전',
-          '관곡지',
-          '기타'
-        ]
-      },
-      {
-        title: '수업활동',
-        sub: [
-          '수업지도',
-          'P(프로젝트)활동',
-          'AI활용가이드'
-        ]
-      }
-    ]
-  },
-  {
-    title: 'AI페스티벌',
-    icon: <Calendar className="w-4 h-4" />,
-    sub: ['학생 작품 전시', 'AI 체험 활동', '문화유산 프로젝트 발표', 'AI 창작 발표회']
-  },
-  {
-    title: '교직원연수',
+    title: '1. 필요성 및 목적',
     icon: <Info className="w-4 h-4" />,
-    sub: ['AI활용연수', '디지털수업사례', 'AI체험프로그램', '프로젝트 운영자료']
+    isLink: true,
+    href: '/purpose'
   },
   {
-    title: '학부모참여P',
-    icon: <Users className="w-4 h-4" />,
-    sub: ['가족 참여 활동', '지역문화 체험', 'AI 체험 프로그램', '학부모 프로젝트 결과물']
+    title: '2. 디딤발 활동',
+    icon: <BookOpen className="w-4 h-4" />,
+    sub: ['2-1. 기초학습', '2-2. 수준별 심화학습', '2-3. 학생동아리 활동']
   },
   {
-    title: '홍보',
+    title: '3. M.A.K.E.R 수업의 실제',
+    icon: <Calendar className="w-4 h-4" />,
+    sub: ['3-1. M.A.K.E.R 수업모형', "3-2. '문화유산 M.A.K.E.R' 수업의 실제"]
+  },
+  {
+    title: '4. 일반화',
     icon: <Share2 className="w-4 h-4" />,
-    sub: ['갤러리', '프로젝트소식', '지역교과서탑재', '활동영상']
+    sub: ['4-1. 교사연수', '4-2. 지역화 교과서 탑재']
   },
   {
-    title: 'AI경진대회',
+    title: '5. 수업 자료 나눔',
     icon: <Award className="w-4 h-4" />,
-    sub: ['대회 안내', '작품 제출', '우수작 발표', '수상작 전시']
+    sub: ['5-1. 지도안', '5-2. 학습지']
   }
 ];
 
@@ -111,69 +79,16 @@ export default function Header() {
   }, []);
 
   const getHref = (itemTitle: string, subItem: string) => {
-    if (itemTitle === '학생동아리' || itemTitle === 'AI디지털소양P') {
-      if (subItem === '학생 활동사진') return '/activity-photos';
-      return `/clubs/${subItem}`;
-    }
-    if (
-      itemTitle === '지도안 · 학습지' ||
-      itemTitle === '지역문화유산·지도안 학습지' ||
-      itemTitle === '지역문화유산P' ||
-      itemTitle === '지역문화P'
-    ) {
-      if (subItem === '문화유산') return '/heritage';
-      if (subItem === '기타') return '/heritage-archive?heritage=기타';
-      const sectionMap: Record<string, string> = {
-        '수업 지도안': 'lesson',
-        '수업지도': 'lesson',
-        '활동지': 'activity',
-        '프로젝트 활동 자료': 'project-res',
-        'P(프로젝트)활동': 'project-res',
-        '프롬프트 예시': 'prompt',
-        'AI 활용 가이드': 'guide',
-        'AI활용가이드': 'guide'
-      };
-      if (sectionMap[subItem]) {
-        return `/resources#${sectionMap[subItem]}`;
-      }
-    }
-    if (itemTitle === '교직원연수') {
-      const sectionMap: Record<string, string> = {
-        'AI활용연수': 'ai-training',
-        '디지털수업사례': 'digital-case',
-        'AI체험프로그램': 'ai-experience',
-        '프로젝트 운영자료': 'project-data'
-      };
-      return `/staff#${sectionMap[subItem] || ''}`;
-    }
-    if (itemTitle === '홍보') {
-      const sectionMap: Record<string, string> = {
-        '갤러리': 'gallery',
-        '프로젝트소식': 'news',
-        '지역교과서탑재': 'textbook',
-        '활동영상': 'videos'
-      };
-      return `/promotion#${sectionMap[subItem] || ''}`;
-    }
-    if (itemTitle === 'AI경진대회') {
-      const sectionMap: Record<string, string> = {
-        '대회 안내': 'info',
-        '작품 제출': 'submit',
-        '우수작 발표': 'winners',
-        '수상작 전시': 'exhibit'
-      };
-      return `/contest#${sectionMap[subItem] || ''}`;
-    }
-    
-    // Convert dropdown subItem to exact project data keys to maintain original links
-    let targetSub = subItem;
-    if (subItem === '능곡선사유적') targetSub = '능곡선사유적지';
-    if (subItem === '군자봉 성황제') targetSub = '군자봉성황제';
-    
-    // Default cases for other menus can be projects or specific pages
-    if (targetSub === '활동 갤러리' || targetSub === '갤러리') return '/project/갤러리'; // Example handler
-    
-    return `/project/${targetSub}`;
+    if (subItem === '2-1. 기초학습') return '/basics';
+    if (subItem === '2-2. 수준별 심화학습') return '/advanced';
+    if (subItem === '2-3. 학생동아리 활동') return '/activity-photos';
+    if (subItem === '3-1. M.A.K.E.R 수업모형') return '/maker-model';
+    if (subItem === "3-2. '문화유산 M.A.K.E.R' 수업의 실제") return '/heritage';
+    if (subItem === '4-1. 교사연수') return '/staff';
+    if (subItem === '4-2. 지역화 교과서 탑재') return '/promotion#textbook';
+    if (subItem === '5-1. 지도안') return '/resources#lesson';
+    if (subItem === '5-2. 학습지') return '/resources#activity';
+    return '/';
   };
 
   return (
@@ -216,9 +131,6 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
         <div className="flex items-center space-x-8">
           <Link to="/" className="flex items-center space-x-3 group">
-            <div className="w-10 h-10 bg-gold-500 flex items-center justify-center rounded-sm group-hover:rotate-12 transition-transform duration-300 shadow-lg">
-               <span className="text-ink-900 font-serif font-bold text-xl">M</span>
-            </div>
             <div className="flex flex-col">
               <span className={`font-bold text-lg leading-tight tracking-tight transition-colors ${scrolled ? 'text-gold-500' : 'text-white'}`}>시흥문화유산</span>
               <span className={`text-[9px] font-serif uppercase tracking-[0.2em] font-bold ${scrolled ? 'text-ink-900/60' : 'text-gold-500/80'}`}>M.A.K.E.R Project</span>
@@ -232,25 +144,22 @@ export default function Header() {
                 key={item.title} 
                 className="relative group"
                 onMouseEnter={() => {
-                  setActiveSub(item.title);
-                  if (item.isNested) {
-                    setDesktopActiveCategory(null);
+                  if (!item.isLink) {
+                    setActiveSub(item.title);
                   }
                 }}
                 onMouseLeave={() => {
                   setActiveSub(null);
-                  setDesktopActiveCategory(null);
                 }}
               >
-                {item.title === '지역문화P' ? (
+                {item.isLink ? (
                   <Link
-                    to="/heritage"
+                    to={item.href || '#'}
                     className={`flex items-center space-x-1 py-4 transition-colors duration-200 text-[13px] font-bold cursor-pointer ${
                       scrolled ? 'text-gold-600 hover:text-ink-900' : 'text-gold-500 hover:text-white'
                     }`}
                   >
-                    <span>{item.title}</span>
-                    <ChevronDown className="w-3 h-3 opacity-30" />
+                    <span className="whitespace-nowrap break-keep">{item.title}</span>
                   </Link>
                 ) : (
                   <button 
@@ -258,101 +167,38 @@ export default function Header() {
                       e.stopPropagation();
                       const nextActive = activeSub === item.title ? null : item.title;
                       setActiveSub(nextActive);
-                      if (!nextActive) {
-                        setDesktopActiveCategory(null);
-                      }
                     }}
                     className={`flex items-center space-x-1 py-4 transition-colors duration-200 text-[13px] font-bold cursor-pointer ${
                       scrolled ? 'text-gold-600 hover:text-ink-900' : 'text-gold-500 hover:text-white'
                     }`}
                   >
-                    <span>{item.title}</span>
+                    <span className="whitespace-nowrap break-keep">{item.title}</span>
                     <ChevronDown className="w-3 h-3 opacity-30" />
                   </button>
                 )}
                 
                 <AnimatePresence>
-                  {activeSub === item.title && (
+                  {!item.isLink && activeSub === item.title && (
                     <motion.div
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 5 }}
-                      className={`absolute top-full left-0 bg-hanji-50 border border-gold-500/20 shadow-2xl rounded-sm p-2 z-[100] ${
-                        item.isNested ? 'w-56' : 'w-52'
-                      }`}
+                      className="absolute top-full left-0 bg-hanji-50 border border-gold-500/20 shadow-2xl rounded-sm p-2 z-[100] w-56 animate-in fade-in slide-in-from-top-1 duration-150"
                     >
                       <div className="absolute inset-0 hanji-texture opacity-20 pointer-events-none" />
                       
-                      {item.isNested ? (
-                        <div className="space-y-1.5 relative z-10 text-left">
+                      <div className="relative z-10">
+                        {item.sub?.map((subItem) => (
                           <Link
-                            to="/heritage"
-                            className="block px-3 py-1.5 text-xs font-bold font-serif text-gold-600 hover:text-gold-700 hover:bg-gold-500/10 rounded-sm transition-all text-left"
+                            key={subItem}
+                            to={getHref(item.title, subItem)}
+                            onClick={() => setActiveSub(null)}
+                            className="block px-3 py-2 text-xs text-ink-800 hover:bg-gold-500/10 hover:text-gold-600 rounded-sm transition-all duration-200 text-left whitespace-nowrap break-keep"
                           >
-                            지역문화P 홈
+                            <span className="whitespace-nowrap break-keep">{subItem}</span>
                           </Link>
-                          <hr className="border-gold-500/10 my-1" />
-                          
-                          {item.categories?.map((cat) => {
-                            const isCatActive = desktopActiveCategory === cat.title;
-                            return (
-                              <div 
-                                key={cat.title}
-                                className="space-y-1"
-                                onMouseEnter={() => setDesktopActiveCategory(cat.title)}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDesktopActiveCategory(isCatActive ? null : cat.title);
-                                  }}
-                                  className={`w-full flex items-center justify-between px-3 py-1.5 text-xs font-bold font-serif rounded-sm cursor-pointer transition-all ${
-                                    isCatActive ? 'bg-gold-500/10 text-gold-600' : 'text-ink-800 hover:bg-gold-500/5'
-                                  }`}
-                                >
-                                  <span>{cat.title}</span>
-                                  <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${isCatActive ? 'rotate-180' : ''}`} />
-                                </button>
-                                
-                                <AnimatePresence initial={false}>
-                                  {isCatActive && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: 'auto', opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      transition={{ duration: 0.15 }}
-                                      className="pl-3 overflow-hidden flex flex-col space-y-1 border-l border-gold-500/10 ml-2.5"
-                                    >
-                                      {cat.sub.map((subItem) => (
-                                        <Link
-                                          key={subItem}
-                                          to={getHref(item.title, subItem)}
-                                          className="px-2 py-1 text-[11px] text-ink-800 hover:text-gold-600 rounded-sm transition-all text-left block"
-                                        >
-                                          • {subItem}
-                                        </Link>
-                                      ))}
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="relative z-10">
-                          {item.sub?.map((subItem) => (
-                            <Link
-                              key={subItem}
-                              to={getHref(item.title, subItem)}
-                              className="block px-3 py-2 text-xs text-ink-800 hover:bg-gold-500/10 hover:text-gold-600 rounded-sm transition-all duration-200 text-left"
-                            >
-                              {subItem}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
+                        ))}
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -363,10 +209,10 @@ export default function Header() {
 
         {/* Mobile Menu Toggle */}
         <button 
-          className="lg:hidden p-2 text-ink-900"
+          className="lg:hidden p-2 text-ink-900 border border-gold-500/20 bg-white/50 backdrop-blur-sm rounded-xs"
           onClick={() => setIsOpen(!isOpen)}
         >
-          {isOpen ? <X /> : <Menu />}
+          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
@@ -386,99 +232,57 @@ export default function Header() {
                 const isExpanded = mobileActiveMenu === item.title;
                 return (
                   <div key={item.title} className="space-y-2">
-                    <button
-                      onClick={() => setMobileActiveMenu(isExpanded ? null : item.title)}
-                      className="w-full flex items-center justify-between text-gold-600 border-b border-gold-500/20 pb-2 text-left font-bold cursor-pointer"
-                    >
-                      <div className="flex items-center space-x-2">
-                        {item.icon}
-                        <span className="text-base sm:text-lg">{item.title}</span>
-                      </div>
-                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-                    
-                    <AnimatePresence initial={false}>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="grid grid-cols-1 gap-2 pl-6 overflow-hidden text-left"
+                    {item.isLink ? (
+                      <Link
+                        to={item.href || '#'}
+                        onClick={() => setIsOpen(false)}
+                        className="w-full flex items-center justify-between text-gold-600 border-b border-gold-500/20 pb-2 text-left font-bold"
+                      >
+                        <div className="flex items-center space-x-2">
+                          {item.icon}
+                          <span className="text-base sm:text-lg">{item.title}</span>
+                        </div>
+                      </Link>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setMobileActiveMenu(isExpanded ? null : item.title)}
+                          className="w-full flex items-center justify-between text-gold-600 border-b border-gold-500/20 pb-2 text-left font-bold cursor-pointer"
                         >
-                          {item.isNested ? (
-                            <div className="space-y-3 py-1 bg-white/30 p-2 rounded-sm border border-gold-500/5 my-1 text-left">
-                              <Link
-                                to="/heritage"
-                                onClick={() => {
-                                  setIsOpen(false);
-                                  setMobileActiveCategory(null);
-                                  setMobileActiveMenu(null);
-                                }}
-                                className="w-full text-left font-serif font-bold text-sm py-1.5 px-1 block text-gold-600 hover:text-gold-700 transition-colors"
-                              >
-                                지역문화P 홈
-                              </Link>
-                              <hr className="border-gold-500/10 my-1" />
-                              
-                              {item.categories?.map((cat) => {
-                                const isCatExpanded = mobileActiveCategory === cat.title;
-                                return (
-                                  <div key={cat.title} className="space-y-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => setMobileActiveCategory(isCatExpanded ? null : cat.title)}
-                                      className="w-full flex items-center justify-between text-gold-600/90 font-serif font-bold text-sm py-1.5 px-1 cursor-pointer"
-                                    >
-                                      <span>{cat.title}</span>
-                                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isCatExpanded ? 'rotate-180' : ''}`} />
-                                    </button>
-                                    
-                                    <AnimatePresence initial={false}>
-                                      {isCatExpanded && (
-                                        <motion.div
-                                          initial={{ height: 0, opacity: 0 }}
-                                          animate={{ height: 'auto', opacity: 1 }}
-                                          exit={{ height: 0, opacity: 0 }}
-                                          transition={{ duration: 0.2 }}
-                                          className="grid grid-cols-1 gap-1.5 pl-4 overflow-hidden border-l border-gold-500/15 ml-1 pb-1"
-                                        >
-                                          {cat.sub?.map((subItem) => (
-                                            <Link
-                                              key={subItem}
-                                              to={getHref(item.title, subItem)}
-                                              onClick={() => {
-                                                setIsOpen(false);
-                                                setMobileActiveCategory(null);
-                                                setMobileActiveMenu(null);
-                                              }}
-                                              className="text-ink-800 hover:text-gold-600 transition-colors duration-200 py-1 text-xs text-left block"
-                                            >
-                                              • {subItem}
-                                            </Link>
-                                          ))}
-                                        </motion.div>
-                                      )}
-                                    </AnimatePresence>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            item.sub?.map((subItem) => (
-                              <Link
-                                key={subItem}
-                                to={getHref(item.title, subItem)}
-                                onClick={() => setIsOpen(false)}
-                                className="text-ink-800 hover:text-gold-600 transition-colors duration-200 py-1.5 text-sm text-left block"
-                              >
-                                • {subItem}
-                              </Link>
-                            ))
+                          <div className="flex items-center space-x-2">
+                            {item.icon}
+                            <span className="text-base sm:text-lg">{item.title}</span>
+                          </div>
+                          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        <AnimatePresence initial={false}>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="grid grid-cols-1 gap-2 pl-6 overflow-hidden text-left"
+                            >
+                              {item.sub?.map((subItem) => (
+                                <Link
+                                  key={subItem}
+                                  to={getHref(item.title, subItem)}
+                                  onClick={() => {
+                                    setIsOpen(false);
+                                    setMobileActiveMenu(null);
+                                  }}
+                                  className="text-ink-800 hover:text-gold-600 transition-colors duration-200 py-1.5 text-sm text-left block"
+                                >
+                                  • {subItem}
+                                </Link>
+                              ))}
+                            </motion.div>
                           )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                        </AnimatePresence>
+                      </>
+                    )}
                   </div>
                 );
               })}

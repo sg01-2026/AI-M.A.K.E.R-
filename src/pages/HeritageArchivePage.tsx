@@ -113,8 +113,26 @@ export default function HeritageArchivePage() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [selectedMakerStage, setSelectedMakerStage] = useState<string>('전체');
   
-  const initialHeritage = searchParams.get('heritage') || '전체';
+  const getNormalizedHeritage = (val: string | null): string => {
+    if (!val) return '전체';
+    const trimmed = val.trim();
+    if (trimmed === '군자봉성황제' || trimmed === '군자봉 성황제') return '군자봉 성황제';
+    if (trimmed === '능곡선사유적지' || trimmed === '능곡선사유적') return '능곡선사유적';
+    if (trimmed === '오이도패총' || trimmed === '오이도 패총') return '오이도 패총';
+    if (trimmed === '갯골염전' || trimmed === '갯골·염전' || trimmed === '갯골생태공원' || trimmed.includes('갯골')) return '갯골·염전';
+    return trimmed;
+  };
+
+  const initialHeritage = getNormalizedHeritage(searchParams.get('heritage'));
   const [selectedHeritage, setSelectedHeritage] = useState<string>(initialHeritage);
+
+  useEffect(() => {
+    const param = searchParams.get('heritage');
+    if (param) {
+      setSelectedHeritage(getNormalizedHeritage(param));
+    }
+  }, [searchParams]);
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activePhoto, setActivePhoto] = useState<Resource | null>(null);
 
@@ -162,7 +180,7 @@ export default function HeritageArchivePage() {
 
   const handleDelete = async (e: React.MouseEvent, res: Resource) => {
     e.stopPropagation();
-    if (!window.confirm("정말 삭제하시겠습니까?")) {
+    if (!window.confirm("정말 이 활동을 삭제하시겠습니까?")) {
       return;
     }
 

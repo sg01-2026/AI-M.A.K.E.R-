@@ -51,6 +51,19 @@ export default function AdminUpload({ initialCategory, onUploadSuccess, editingR
     category: initialCategory || ALL_CATEGORIES[0]
   });
 
+  useEffect(() => {
+    const isAI = form.category && (form.category.startsWith('기본') || form.category.includes('소양'));
+    if (isAI) {
+      if (!['AI 드로잉', 'AI 일러스트 동화', 'AI 뮤직비디오 · 3D 가상 유적지 복원'].includes(heritageSelect)) {
+        setHeritageSelect('AI 드로잉');
+      }
+    } else {
+      if (['AI 드로잉', 'AI 일러스트 동화', 'AI 뮤직비디오 · 3D 가상 유적지 복원'].includes(heritageSelect)) {
+        setHeritageSelect('호조벌');
+      }
+    }
+  }, [form.category]);
+
   const handleClose = () => {
     setIsOpen(false);
     if (onCancelEdit) {
@@ -71,11 +84,16 @@ export default function AdminUpload({ initialCategory, onUploadSuccess, editingR
         return clean;
       };
 
-      const hSelect = ['호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집'].includes(editingResource.heritage || '')
-        ? (editingResource.heritage || '호조벌')
-        : (editingResource.heritage ? '기타' : '호조벌');
+      const isAI = editingResource.category && (editingResource.category.startsWith('기본') || editingResource.category.includes('소양'));
+      const hSelect = isAI
+        ? (['AI 드로잉', 'AI 일러스트 동화', 'AI 뮤직비디오 · 3D 가상 유적지 복원'].includes(editingResource.heritage || '')
+            ? (editingResource.heritage || 'AI 드로잉')
+            : 'AI 드로잉')
+        : (['호조벌', '관곡지', '오이도 패총', '군자봉성황제', '능곡선사유적지', '갯골·염전', '생금집'].includes(editingResource.heritage || '')
+            ? (editingResource.heritage || '호조벌')
+            : (editingResource.heritage ? '기타' : '호조벌'));
 
-      const customH = hSelect === '기타' ? (editingResource.heritage || '') : '';
+      const customH = (!isAI && hSelect === '기타') ? (editingResource.heritage || '') : '';
 
       setForm({
         title: cleanTitle(editingResource.title),
@@ -431,26 +449,44 @@ export default function AdminUpload({ initialCategory, onUploadSuccess, editingR
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs text-ink-800/60 uppercase block font-bold">문화유산 분류 선택</label>
-                    <div className="relative">
-                      <select 
-                        value={heritageSelect}
-                        onChange={e => setHeritageSelect(e.target.value)}
-                        className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors appearance-none text-ink-900 cursor-pointer text-xs"
-                      >
-                        <option value="호조벌">호조벌</option>
-                        <option value="관곡지">관곡지</option>
-                        <option value="오이도 패총">오이도 패총</option>
-                        <option value="군자봉성황제">군자봉성황제</option>
-                        <option value="능곡선사유적지">능곡선사유적지</option>
-                        <option value="갯골·염전">갯골·염전</option>
-                        <option value="생금집">생금집</option>
-                        <option value="기타">기타(입력)</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-800/40 pointer-events-none" />
+                  {form.category && (form.category.startsWith('기본') || form.category.includes('소양')) ? (
+                    <div className="space-y-2">
+                      <label className="text-xs text-ink-800/60 uppercase block font-bold">학습 영역 선택</label>
+                      <div className="relative">
+                        <select 
+                          value={heritageSelect}
+                          onChange={e => setHeritageSelect(e.target.value)}
+                          className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors appearance-none text-ink-900 cursor-pointer text-xs"
+                        >
+                          <option value="AI 드로잉">AI 드로잉</option>
+                          <option value="AI 일러스트 동화">AI 일러스트 동화</option>
+                          <option value="AI 뮤직비디오 · 3D 가상 유적지 복원">AI 뮤직비디오 · 3D 가상 유적지 복원</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-800/40 pointer-events-none" />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="text-xs text-ink-800/60 uppercase block font-bold">문화유산 분류 선택</label>
+                      <div className="relative">
+                        <select 
+                          value={heritageSelect}
+                          onChange={e => setHeritageSelect(e.target.value)}
+                          className="w-full bg-white border border-gold-500/10 p-3 outline-none focus:border-gold-500 transition-colors appearance-none text-ink-900 cursor-pointer text-xs"
+                        >
+                          <option value="호조벌">호조벌</option>
+                          <option value="관곡지">관곡지</option>
+                          <option value="오이도 패총">오이도 패총</option>
+                          <option value="군자봉성황제">군자봉성황제</option>
+                          <option value="능곡선사유적지">능곡선사유적지</option>
+                          <option value="갯골·염전">갯골·염전</option>
+                          <option value="생금집">생금집</option>
+                          <option value="기타">기타(입력)</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-800/40 pointer-events-none" />
+                      </div>
+                    </div>
+                  )}
 
                   {heritageSelect === '기타' && (
                     <div className="space-y-2">

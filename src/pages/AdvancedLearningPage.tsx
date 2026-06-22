@@ -2,7 +2,7 @@ import React from 'react';
 import { Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function ActivityPhotosPage() {
+export default function AdvancedLearningPage() {
   return (
     <div className="min-h-screen bg-[#FAF8F5] pb-24 text-left pt-20">
       {/* Decorative Accent Border */}
@@ -20,7 +20,7 @@ export default function ActivityPhotosPage() {
           </div>
           <span className="text-zinc-300 font-light">/</span>
           <div className="flex items-center space-x-1 text-zinc-800 font-semibold cursor-pointer">
-            <span style={{ whiteSpace: 'nowrap', wordBreak: 'keepAll', overflowWrap: 'normal' }}>2-3. 학생동아리 활동</span>
+            <span style={{ whiteSpace: 'nowrap', wordBreak: 'keepAll', overflowWrap: 'normal' }}>2-2. 수준별 심화학습</span>
           </div>
         </div>
       </div>
@@ -30,22 +30,22 @@ export default function ActivityPhotosPage() {
         <div className="hanji-texture absolute inset-0 opacity-15 pointer-events-none" />
         <div className="max-w-4xl mx-auto text-center space-y-4 relative z-10">
           <span className="text-xs text-[#8C6239] font-serif uppercase tracking-[0.3em] font-bold block whitespace-nowrap break-keep">
-            CLUB ACTIVITIES
+            ADVANCED DIGITAL LITERACY
           </span>
           <h1 
             className="text-4xl md:text-5xl font-serif text-[#1A1A1A] font-bold tracking-tight"
             style={{ whiteSpace: 'nowrap', wordBreak: 'keepAll', overflowWrap: 'normal' }}
           >
-            2-3. 학생동아리 활동
+            2-2. 수준별 심화학습
           </h1>
           <div className="h-0.5 w-16 bg-[#8C6239]/40 mx-auto" />
         </div>
       </div>
 
-      {/* Main Body Content with EXACTLY '학생동아리' */}
+      {/* Main Body Content */}
       <div className="max-w-5xl mx-auto px-4 mt-20">
         <div className="bg-white border border-[#EADFCB]/30 p-16 rounded-sm shadow-xs text-center">
-          <p className="text-xl font-serif text-[#1A1A1A]">학생동아리</p>
+          <p className="text-xl font-serif text-[#1A1A1A]">심화학습</p>
         </div>
       </div>
     </div>

@@ -327,6 +327,27 @@ export default function HeritagePage() {
          )}
       </section>
 
+      {/* 학생 활동 아카이브 연결 배너 */}
+      <section className="bg-white border-t border-gold-500/15 py-16">
+         <div className="max-w-4xl mx-auto px-4 text-center space-y-6">
+            <h3 className="text-2xl font-serif text-ink-900">
+               {data.name} 학생 활동 아카이브
+            </h3>
+            <p className="text-ink-800/60 font-serif text-sm max-w-xl mx-auto">
+               학생들이 {data.name}을(를) 직접 탐구하고 아카이빙한 결과물과 창작물들을 살펴볼 수 있습니다.
+            </p>
+            <div className="pt-2">
+               <Link 
+                 to={`/heritage-archive?heritage=${encodeURIComponent(data.name)}`}
+                 className="inline-flex items-center space-x-2 px-8 py-3.5 bg-gold-500 hover:bg-gold-600 text-ink-900 font-serif font-bold text-sm tracking-widest transition-all shadow-md rounded-xs"
+               >
+                 <BookOpen className="w-4 h-4" />
+                 <span>{data.name} 학생 활동 보기</span>
+               </Link>
+            </div>
+         </div>
+      </section>
+
       <AdminUpload initialCategory={data.name} />
     </div>
   );
