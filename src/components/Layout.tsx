@@ -17,9 +17,6 @@ export default function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12">
           <div className="space-y-6 lg:col-span-1">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gold-500 flex items-center justify-center rounded-sm">
-                 <span className="text-ink-900 font-serif font-bold text-lg">M</span>
-              </div>
               <span className="font-bold text-xl tracking-tight text-white">시흥문화유산 M.A.K.E.R</span>
             </div>
             <div className="text-hanji-200/60 text-sm leading-relaxed font-serif space-y-4">

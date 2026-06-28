@@ -52,5 +52,10 @@ service cloud.firestore {
     match /activity_photos/{photoId} {
       allow read, create, update, delete: if true;
     }
+
+    // Level-specific Intensive Learning Photos
+    match /intensive_photos/{photoId} {
+      allow read, create, update, delete: if true;
+    }
   }
 }

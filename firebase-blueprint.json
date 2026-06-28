@@ -44,6 +44,22 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "description", "imageUrl", "category", "eventDate", "author", "viewCount"]
+    },
+    "IntensivePhoto": {
+      "title": "Level-specific Intensive Learning Photo",
+      "description": "Activity photos shared for intensive learning courses with detailed metadata and view counts",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "category": { "type": "string", "enum": ["심화1", "심화2", "심화3"] },
+        "eventDate": { "type": "string" },
+        "author": { "type": "string" },
+        "viewCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "imageUrl", "category", "eventDate", "author", "viewCount"]
     }
   },
   "firestore": {
@@ -58,6 +74,10 @@
     "/activity_photos/{photoId}": {
       "schema": "ActivityPhoto",
       "description": "Student activity photos separated by clubs with view count tracing"
+    },
+    "/intensive_photos/{photoId}": {
+      "schema": "IntensivePhoto",
+      "description": "Level-specific intensive learning photos with view count tracing"
     }
   }
 }
